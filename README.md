@@ -1,15 +1,23 @@
-# FitPact 1.9.0-beta.2 — Ambiente de testes
+# FitPact 1.9.0-beta.3 — Ambiente de testes
 
 **Não publicar sobre a versão 1.8.0 de produção.** Esta beta utiliza o projeto Supabase de testes `ghscxbyziztrrotyizcx`.
 
 ## Release notes (histórico acumulado)
+
+### 1.9.0-beta.3 — 19/10/2026
+- **FP-50 — Comparação mensal:** painel recolhível com dias treinados, atividades concluídas e cumprimento da meta, comparando os mesmos dias do mês mais recente e do anterior.
+- Diferenças absolutas e diferenças em pontos percentuais; apresentação neutra de reduções e ausência de meta.
+- Os painéis semanais, calendário, distribuição e comparação mensal iniciam recolhidos e podem ser abertos independentemente.
+- Mantidas as configurações do Supabase de beta e a pasta `sql/` com todas as migrações históricas; **sem nova migração SQL**.
+- **Homologação pendente:** testes funcionais e regressão da beta.3 antes de qualquer promoção para produção.
+
 
 ### 1.9.0-beta.2 — 19/10/2026
 - **FP-48:** calendário mensal de consistência, com navegação entre meses, destaque de dias treinados e consulta dos treinos por dia; datas futuras e fora do período ficam desativadas.
 - **FP-49:** distribuição por atividade concluída, com contagem, percentagem e barras proporcionais; considera a atividade efetivamente realizada em substituições e preserva os nomes históricos.
 - **Conforto visual:** gráfico semanal, calendário e distribuição começam recolhidos; cada painel pode ser aberto separadamente, mantendo o estado durante atualizações da aplicação.
 - **SQL:** nenhuma nova migração; todos os scripts históricos permanecem na pasta `sql/`.
-- **Pendente para beta.3:** comparação mensal FP-50 e regressão final.
+- **Entregue na beta.3:** comparação mensal FP-50; regressão final ainda pendente.
 
 
 

@@ -207,7 +207,7 @@ function renderEvolution(){
  const note=element('p','small',`Período: ${fmtDate(start)} a ${fmtDate(end)} · Apenas resultados até hoje. Metas semanais parciais consideram os dias dentro do filtro.`);root.append(note);
  const details=evolutionPanel('weekly','📊 Dias treinados × meta semanal');
 
- if(!data.weeks.length){details.append(element('p','small','Nenhum período disponível para apresentar.'));root.append(details);renderEvolutionCalendar(root,start,end);renderEvolutionDistribution(root,start,end);return}
+ if(!data.weeks.length){details.append(element('p','small','Nenhum período disponível para apresentar.'));root.append(details);renderEvolutionCalendar(root,start,end);renderEvolutionDistribution(root,start,end);renderEvolutionMonthly(root,start,end);return}
  const chart=element('div','evolution-chart');chart.setAttribute('role','list');
  for(const w of data.weeks){
   const item=element('div','evolution-week');item.setAttribute('role','listitem');
@@ -226,6 +226,7 @@ function renderEvolution(){
  details.append(chart);root.append(details);
  renderEvolutionCalendar(root,start,end);
  renderEvolutionDistribution(root,start,end);
+ renderEvolutionMonthly(root,start,end);
 }
 
 
@@ -314,6 +315,69 @@ function renderEvolutionDistribution(root,start,end){
   row.append(heading,track);list.append(row);
  }
  panel.append(list);root.append(panel);
+}
+
+// FP-50: compara períodos equivalentes de dois meses consecutivos, sem criar dados.
+function evolutionMonthBounds(month,days){
+ const first=month.slice(0,7)+'-01';
+ const lastDay=new Date(Number(month.slice(0,4)),Number(month.slice(5,7)),0).getDate();
+ return [first,month.slice(0,7)+'-'+String(Math.min(days,lastDay)).padStart(2,'0')];
+}
+function evolutionMonthlyStats(from,to){
+ const mine=workouts.filter(w=>w.user_id===user.id);
+ const completed=mine.filter(w=>w.status==='done'&&w.completed_date&&w.completed_date>=from&&w.completed_date<=to);
+ const trained=completed.filter(w=>w.actual_counts_as_training);
+ const days=new Set(trained.map(w=>w.completed_date)).size;
+ let planned=0,fulfilled=0;
+ // Mesmo critério da evolução: metas semanais parciais restritas aos dias comparados.
+ for(let week=mondayOf(from),i=0;week<=to&&i<6;week=shift(week,7),i++){
+  const begin=week<from?from:week,finish=shift(week,6)>to?to:shift(week,6);
+  const scheduled=new Set(mine.filter(w=>w.scheduled_date>=begin&&w.scheduled_date<=finish&&w.planned_counts_as_training&&!w.extra_workout&&w.status!=='rescheduled').map(w=>w.scheduled_date));
+  const actual=new Set(trained.filter(w=>w.completed_date>=begin&&w.completed_date<=finish).map(w=>w.completed_date));
+  if(scheduled.size){planned+=scheduled.size;fulfilled+=Math.min(scheduled.size,actual.size)}
+ }
+ return {days,activities:completed.length,planned,fulfilled,pct:planned?Math.round(100*fulfilled/planned):null};
+}
+function renderEvolutionMonthly(root,start,end){
+ const panel=evolutionPanel('monthly','📈 Comparação mensal');
+ const today=dateStr(new Date()),last=end<today?end:today;
+ if(start>last){panel.append(element('p','small','Não há resultados neste período.'));root.append(panel);return}
+ // Último mês com dias disponíveis dentro do filtro; comparação com o mês anterior.
+ const currentMonth=last.slice(0,7)+'-01',previousMonth=evolutionMonthShift(currentMonth,-1);
+ const dayCount=Number(last.slice(8,10));
+ const [currentStart,calendarCurrentEnd]=evolutionMonthBounds(currentMonth,dayCount);
+ const [previousStart,calendarPreviousEnd]=evolutionMonthBounds(previousMonth,dayCount);
+ const from=currentStart<start?start:currentStart;
+ const to=calendarCurrentEnd>last?last:calendarCurrentEnd;
+ if(from>to){panel.append(element('p','small','Não há dias para comparar.'));root.append(panel);return}
+ // Comparar o mesmo intervalo de dias, inclusive para filtros personalizados que começam a meio do mês.
+ const firstDay=Number(from.slice(8,10)),lastDay=Number(to.slice(8,10));
+ const priorMonthLastDay=Number(calendarPreviousEnd.slice(8,10));
+ const prevFrom=previousMonth.slice(0,7)+'-'+String(Math.min(firstDay,priorMonthLastDay)).padStart(2,'0');
+ const prevTo=previousMonth.slice(0,7)+'-'+String(Math.min(lastDay,priorMonthLastDay)).padStart(2,'0');
+ const now=evolutionMonthlyStats(from,to),before=evolutionMonthlyStats(prevFrom,prevTo);
+ const dateLabel=date=>new Date(date+'T12:00:00').toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+ panel.append(element('p','small',`Comparação proporcional: ${fmtDate(from)} a ${fmtDate(to)} × ${fmtDate(prevFrom)} a ${fmtDate(prevTo)}. O mês anterior é utilizado como referência, mesmo quando está fora do filtro.`));
+ const table=element('div','evolution-monthly');
+ const heading=element('div','evolution-monthly-row evolution-monthly-header');
+ for(const title of ['Indicador',dateLabel(previousMonth),dateLabel(currentMonth),'Diferença'])heading.append(element('span','',title));
+ table.append(heading);
+ function add(label,previous,current,kind){
+  const row=element('div','evolution-monthly-row');
+  let difference='—';
+  if(previous!==null&&current!==null){
+   const delta=current-previous;
+   difference=(delta>0?'+':'')+String(delta)+(kind==='pct'?' p.p.':'');
+  }
+  for(const value of [label,previous===null?'—':String(previous)+(kind==='pct'?'%':''),current===null?'—':String(current)+(kind==='pct'?'%':''),difference])row.append(element('span','',value));
+  table.append(row);
+ }
+ add('Dias treinados',before.days,now.days,'count');
+ add('Atividades concluídas',before.activities,now.activities,'count');
+ add('Cumprimento da meta',before.pct,now.pct,'pct');
+ panel.append(table);
+ panel.append(element('p','small','A taxa é limitada a 100%; semanas sem meta são neutras. Diferenças de cumprimento são apresentadas em pontos percentuais. Reduções não representam uma avaliação negativa.'));
+ root.append(panel);
 }
 
 function renderHistory(){const root=$('history');root.replaceChildren();$('historyDetails').textContent='';const [start,end]=historyRange();if(start>end){root.textContent='A data inicial não pode ser posterior à data final.';return}const relevant=workouts.filter(w=>w.user_id===viewId&&((w.status==='done'&&w.completed_date?w.completed_date:w.scheduled_date)>=start&&(w.status==='done'&&w.completed_date?w.completed_date:w.scheduled_date)<=end));const weeks=[...new Set(relevant.map(w=>mondayOf(w.status==='done'&&w.completed_date?w.completed_date:w.scheduled_date)))].sort().reverse();let hits=0,totalDays=0,totalActs=0;for(const wk of weeks){const all=weeklyStats(wk,viewId);const inRange=relevant.filter(w=>w.status==='done'&&w.completed_date>=wk&&w.completed_date<shift(wk,7));const days=new Set(inRange.filter(w=>w.actual_counts_as_training).map(w=>w.completed_date)).size;totalDays+=days;totalActs+=inRange.length;if(all.target>0&&all.trainingDays>=all.target)hits++;const b=document.createElement('button');b.className='secondary';b.textContent=`${indicator(all)} ${fmtDate(wk)} a ${fmtDate(shift(wk,6))} · ${days}/${all.target} dias · ${inRange.length} atividades`;b.onclick=()=>{$('historyDetails').textContent=`Semana ${fmtDate(wk)} a ${fmtDate(shift(wk,6))}\nMeta de dias: ${all.target} | Atividades concluídas: ${inRange.length} | Dias concluídos: ${days}\n\n`+relevant.filter(w=>{const d=w.status==='done'&&w.completed_date?w.completed_date:w.scheduled_date;return d>=wk&&d<shift(wk,7)}).sort((a,b)=>a.scheduled_date.localeCompare(b.scheduled_date)).map(w=>`${fmtDate(w.scheduled_date)}: ${effectiveEmoji(w)} ${effectiveActivity(w)} ${w.status==='done'?'✅':w.status==='missed'?'❌':w.status==='rescheduled'?'➡️':'⏳'}${w.status==='done'&&w.actual_name!==w.planned_name?' (substituiu '+w.planned_name+')':''}${w.completed_date?' (concluído em '+fmtDate(w.completed_date)+')':''}`).join('\n')};root.append(b)}$('historyStats').textContent=`${weeks.length} semanas registradas · ${hits} metas atingidas · ${totalActs} atividades concluídas · ${totalDays} dias concluídos`;if(!weeks.length)root.textContent='Nenhuma atividade encontrada neste período.'}
