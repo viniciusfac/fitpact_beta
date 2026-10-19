@@ -1,8 +1,17 @@
-# FitPact 1.9.0-beta.3 — Ambiente de testes
+# FitPact 1.9.0-beta.3.1 — Ambiente de testes
 
 **Não publicar sobre a versão 1.8.0 de produção.** Esta beta utiliza o projeto Supabase de testes `ghscxbyziztrrotyizcx`.
 
 ## Release notes (histórico acumulado)
+
+### 1.9.0-beta.3.1 — 19/10/2026
+- **Correção FP-50:** a Comparação mensal agora oferece seleção dos meses pertencentes ao filtro da aba Evolução, incluindo filtros personalizados. Ao mudar o filtro, a seleção é atualizada.
+- O mês escolhido é comparado ao mês anterior, que pode estar fora do filtro exclusivamente como referência, com aviso explícito.
+- A comparação mantém intervalos equivalentes de dias (respeitando meses mais curtos), os quatro painéis recolhíveis e a indicação **—** para cumprimento sem meta.
+- **Homologação:** beta.3 teve 12 testes aprovados, 1 falha no filtro e 1 item não testado; beta.3.1 aguarda reteste.
+- **SQL:** sem novas migrações. Produção 1.8.0 preservada.
+
+
 
 ### 1.9.0-beta.3 — 19/10/2026
 - **FP-50 — Comparação mensal:** painel recolhível com dias treinados, atividades concluídas e cumprimento da meta, comparando os mesmos dias do mês mais recente e do anterior.

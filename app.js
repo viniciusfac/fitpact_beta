@@ -6,6 +6,7 @@ const DEFAULT=[['🦵','Musculação — inferiores',true],['💪','Musculação
 let client,user,viewId,offset=0,activities=[],workouts=[],goals=[],friends=[],profiles=[],requests=[],loading=false,historyFilter='all',socialReactions=[],socialNudges=[],socialReady=false,recoveryMode=false,friendFilter="all",interactionFilter="all",friendMutes=[],friendEvents=[];
 let weekTemplates=[],weekTemplateItems=[];
 let evolutionFilter='three';
+let evolutionComparisonMonth=null;
 let evolutionCalendarMonth=null;
 const evolutionOpenPanels=new Set();
 let noticeTimer;const notice=t=>{const el=$('notice');el.textContent=t;el.hidden=false;clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>{el.hidden=true},5000)};
@@ -342,33 +343,37 @@ function renderEvolutionMonthly(root,start,end){
  const panel=evolutionPanel('monthly','📈 Comparação mensal');
  const today=dateStr(new Date()),last=end<today?end:today;
  if(start>last){panel.append(element('p','small','Não há resultados neste período.'));root.append(panel);return}
- // Último mês com dias disponíveis dentro do filtro; comparação com o mês anterior.
- const currentMonth=last.slice(0,7)+'-01',previousMonth=evolutionMonthShift(currentMonth,-1);
- const dayCount=Number(last.slice(8,10));
- const [currentStart,calendarCurrentEnd]=evolutionMonthBounds(currentMonth,dayCount);
- const [previousStart,calendarPreviousEnd]=evolutionMonthBounds(previousMonth,dayCount);
- const from=currentStart<start?start:currentStart;
- const to=calendarCurrentEnd>last?last:calendarCurrentEnd;
- if(from>to){panel.append(element('p','small','Não há dias para comparar.'));root.append(panel);return}
- // Comparar o mesmo intervalo de dias, inclusive para filtros personalizados que começam a meio do mês.
+ // A seleção de meses respeita o filtro Evolução. O mês anterior é apenas referência.
+ const months=[];
+ for(let m=evolutionMonthStart(start),i=0;m<=evolutionMonthStart(last)&&i<14;m=evolutionMonthShift(m,1),i++)months.push(m);
+ if(!months.includes(evolutionComparisonMonth))evolutionComparisonMonth=months[months.length-1];
+ const controls=element('div','line evolution-month-controls');
+ const label=element('label','small','Mês analisado');label.setAttribute('for','evolutionComparisonMonth');
+ const select=element('select','');select.id='evolutionComparisonMonth';
+ const monthLabel=date=>new Date(date+'T12:00:00').toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+ for(const m of months){const option=element('option','',monthLabel(m));option.value=m;option.selected=m===evolutionComparisonMonth;select.append(option)}
+ select.onchange=()=>{evolutionComparisonMonth=select.value;renderEvolution()};
+ controls.append(label,select);panel.append(controls);
+ panel.append(element('p','small',`${months.length} mês(es) disponível(is) no filtro. Escolha o mês para consultar sua comparação com o anterior.`));
+ const currentMonth=evolutionComparisonMonth,previousMonth=evolutionMonthShift(currentMonth,-1);
+ const monthLast=evolutionMonthShift(currentMonth,1);
+ const from=currentMonth<start?start:currentMonth;
+ const to=(shift(monthLast,-1)>last?last:shift(monthLast,-1));
+ if(from>to){panel.append(element('p','small','Não há dias para comparar neste mês.'));root.append(panel);return}
+ // Mesma faixa de dias, respeitando meses mais curtos (ex.: fevereiro).
  const firstDay=Number(from.slice(8,10)),lastDay=Number(to.slice(8,10));
- const priorMonthLastDay=Number(calendarPreviousEnd.slice(8,10));
- const prevFrom=previousMonth.slice(0,7)+'-'+String(Math.min(firstDay,priorMonthLastDay)).padStart(2,'0');
- const prevTo=previousMonth.slice(0,7)+'-'+String(Math.min(lastDay,priorMonthLastDay)).padStart(2,'0');
+ const priorDays=new Date(Number(previousMonth.slice(0,4)),Number(previousMonth.slice(5,7)),0).getDate();
+ const prevFrom=previousMonth.slice(0,7)+'-'+String(Math.min(firstDay,priorDays)).padStart(2,'0');
+ const prevTo=previousMonth.slice(0,7)+'-'+String(Math.min(lastDay,priorDays)).padStart(2,'0');
  const now=evolutionMonthlyStats(from,to),before=evolutionMonthlyStats(prevFrom,prevTo);
- const dateLabel=date=>new Date(date+'T12:00:00').toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
- panel.append(element('p','small',`Comparação proporcional: ${fmtDate(from)} a ${fmtDate(to)} × ${fmtDate(prevFrom)} a ${fmtDate(prevTo)}. O mês anterior é utilizado como referência, mesmo quando está fora do filtro.`));
+ panel.append(element('p','small',`Período selecionado: ${fmtDate(from)} a ${fmtDate(to)}. Referência: ${fmtDate(prevFrom)} a ${fmtDate(prevTo)} (mês anterior, mesmo que fora do filtro).`));
  const table=element('div','evolution-monthly');
  const heading=element('div','evolution-monthly-row evolution-monthly-header');
- for(const title of ['Indicador',dateLabel(previousMonth),dateLabel(currentMonth),'Diferença'])heading.append(element('span','',title));
+ for(const title of ['Indicador',monthLabel(previousMonth),monthLabel(currentMonth),'Diferença'])heading.append(element('span','',title));
  table.append(heading);
  function add(label,previous,current,kind){
-  const row=element('div','evolution-monthly-row');
-  let difference='—';
-  if(previous!==null&&current!==null){
-   const delta=current-previous;
-   difference=(delta>0?'+':'')+String(delta)+(kind==='pct'?' p.p.':'');
-  }
+  const row=element('div','evolution-monthly-row');let difference='—';
+  if(previous!==null&&current!==null){const delta=current-previous;difference=(delta>0?'+':'')+String(delta)+(kind==='pct'?' p.p.':'')}
   for(const value of [label,previous===null?'—':String(previous)+(kind==='pct'?'%':''),current===null?'—':String(current)+(kind==='pct'?'%':''),difference])row.append(element('span','',value));
   table.append(row);
  }
@@ -376,7 +381,7 @@ function renderEvolutionMonthly(root,start,end){
  add('Atividades concluídas',before.activities,now.activities,'count');
  add('Cumprimento da meta',before.pct,now.pct,'pct');
  panel.append(table);
- panel.append(element('p','small','A taxa é limitada a 100%; semanas sem meta são neutras. Diferenças de cumprimento são apresentadas em pontos percentuais. Reduções não representam uma avaliação negativa.'));
+ panel.append(element('p','small','Sem meta: — (não equivale a 0%). Diferenças de cumprimento em pontos percentuais. A comparação usa o mês escolhido dentro do filtro e o mês anterior como referência.'));
  root.append(panel);
 }
 
@@ -507,7 +512,7 @@ $('saveNewPassword').onclick=async()=>{
   try{const {data,error}=await client.auth.getSession();if(error)throw error;if(!data.session)throw Error('Link expirado ou inválido. Solicite outro link de recuperação.');const result=await client.auth.updateUser({password});if(result.error)throw result.error;$('newPassword').value='';$('confirmPassword').value='';history.replaceState(null,'',location.pathname);recoveryMode=false;$('passwordRecovery').classList.add('hide');notice('Senha alterada com sucesso.');await signed(result.data.user||data.session.user)}catch(e){notice('Não foi possível alterar a senha: '+e.message)}
 };
 $('cancelRecovery').onclick=()=>{recoveryMode=false;history.replaceState(null,'',location.pathname);$('passwordRecovery').classList.add('hide');$('auth').classList.remove('hide')};
-$('logout').onclick=()=>client.auth.signOut();document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{const tab=b.dataset.tab;for(const id of ['plan','history','activities','friends','settings','evolution'])$('tab-'+id).classList.toggle('hide',id!==tab);$('tab-share').classList.toggle('hide',tab!=='plan');document.querySelectorAll('[data-tab]').forEach(x=>{x.classList.toggle('active',x.dataset.tab===tab);x.classList.toggle('secondary',x.dataset.tab!==tab)})});$('socialFriendFilter').onchange=()=>{friendFilter=$('socialFriendFilter').value;renderSocial()};$('interactionFilter').onchange=()=>{interactionFilter=$('interactionFilter').value;renderSocial()};$('evolutionFilter').onchange=()=>{evolutionFilter=$('evolutionFilter').value;for(const id of ['evolutionStart','evolutionEnd'])$(id).classList.toggle('hide',evolutionFilter!=='custom');renderEvolution()};for(const id of ['evolutionStart','evolutionEnd'])$(id).onchange=renderEvolution;$('historyFilter').onchange=()=>{historyFilter=$('historyFilter').value;for(const id of ['historyStart','historyEnd'])$(id).classList.toggle('hide',historyFilter!=='custom');renderHistory()};for(const id of ['historyStart','historyEnd'])$(id).onchange=renderHistory;$('prev').onclick=()=>{offset--;render()};$('next').onclick=()=>{offset++;render()};$('historyViewer').onchange=()=>{viewId=$('historyViewer').value;render()};
+$('logout').onclick=()=>client.auth.signOut();document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{const tab=b.dataset.tab;for(const id of ['plan','history','activities','friends','settings','evolution'])$('tab-'+id).classList.toggle('hide',id!==tab);$('tab-share').classList.toggle('hide',tab!=='plan');document.querySelectorAll('[data-tab]').forEach(x=>{x.classList.toggle('active',x.dataset.tab===tab);x.classList.toggle('secondary',x.dataset.tab!==tab)})});$('socialFriendFilter').onchange=()=>{friendFilter=$('socialFriendFilter').value;renderSocial()};$('interactionFilter').onchange=()=>{interactionFilter=$('interactionFilter').value;renderSocial()};$('evolutionFilter').onchange=()=>{evolutionComparisonMonth=null;evolutionFilter=$('evolutionFilter').value;for(const id of ['evolutionStart','evolutionEnd'])$(id).classList.toggle('hide',evolutionFilter!=='custom');renderEvolution()};for(const id of ['evolutionStart','evolutionEnd'])$(id).onchange=()=>{evolutionComparisonMonth=null;renderEvolution()};$('historyFilter').onchange=()=>{historyFilter=$('historyFilter').value;for(const id of ['historyStart','historyEnd'])$(id).classList.toggle('hide',historyFilter!=='custom');renderHistory()};for(const id of ['historyStart','historyEnd'])$(id).onchange=renderHistory;$('prev').onclick=()=>{offset--;render()};$('next').onclick=()=>{offset++;render()};$('historyViewer').onchange=()=>{viewId=$('historyViewer').value;render()};
 
 $('saveWeekTemplate').onclick=saveTemplateFromWeek;
 $('resetWeek').onclick=async()=>{const wk=currentWeek();if(!owned()||wk<dateStr(monday(0)))return notice('Semanas anteriores não podem ser reiniciadas.');const rows=workouts.filter(w=>w.user_id===user.id&&w.scheduled_date>=wk&&w.scheduled_date<shift(wk,7));if(!rows.length)return notice('Esta semana não tem registros para reiniciar.');if(!confirm('Reiniciar a semana de '+fmtDate(wk)+'? Isso excluirá permanentemente '+rows.length+' registro(s) desta semana, incluindo resultados. Esta ação não pode ser desfeita.'))return;await run(()=>call(client.from('workouts').delete().eq('user_id',user.id).gte('scheduled_date',wk).lt('scheduled_date',shift(wk,7))))};
