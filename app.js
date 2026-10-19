@@ -1,6 +1,6 @@
 'use strict';
-const SUPABASE_URL='https://SEU-PROJETO-DE-TESTES.supabase.co';
-const PUBLIC_KEY='SUA_CHAVE_PUBLICAVEL_DE_TESTES';
+const SUPABASE_URL='https://ghscxbyziztrrotyizcx.supabase.co/rest/v1/';
+const PUBLIC_KEY='sb_publishable_joaqsHtk6EQQhpdaHMno4w_97x3T8lN';
 const $=id=>document.getElementById(id), D=['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];
 const DEFAULT=[['🦵','Musculação — inferiores',true],['💪','Musculação — superiores',true],['🏃','Corrida de rua',true],['🏃‍♂️','Corrida na esteira',true],['🏓','Padel',true]];
 let client,user,viewId,offset=0,activities=[],workouts=[],goals=[],friends=[],profiles=[],requests=[],loading=false,historyFilter='all',socialReactions=[],socialNudges=[],socialReady=false,recoveryMode=false,friendFilter="all",interactionFilter="all",friendMutes=[],friendEvents=[];
