@@ -1,4 +1,4 @@
-# FitPact 1.8.0-beta.1 — Instalação completa em ambiente de testes
+# FitPact 1.8.0-beta.2 — Instalação completa em ambiente de testes
 
 **Esta distribuição não deve ser publicada sobre a versão 1.7.6 homologada.** O `app.js` deste pacote vem sem as credenciais do projeto de produção; configure exclusivamente um novo projeto Supabase de testes.
 
@@ -31,7 +31,8 @@
 
 # FitPact 🏆
 
-**Versão atual: 1.7.6 · 18/10/2026**  
+**Versão de testes: 1.8.0-beta.2 · 19/10/2026**  
+**Última versão estável: 1.7.6 · 18/10/2026**  
 **Slogan:** O compromisso é contigo.
 
 FitPact é uma aplicação web progressiva (PWA), em português brasileiro, para organizar treinos semanais, acompanhar metas e compartilhar a evolução com amigos. Funciona no navegador e pode ser instalada na tela inicial do celular ou no computador.
@@ -222,3 +223,18 @@ FitPact é uma aplicação web progressiva (PWA), em português brasileiro, para
 - Validar as três correções da v1.7.4 com duas contas.
 - Continuar melhorando acessibilidade, experiência móvel e clareza das notificações.
 - Avaliar suporte a sincronização offline e notificações push numa versão futura.
+
+
+## Histórico da versão 1.8.0-beta.2 (FP-45) — 19/10/2026
+
+- O painel **Modelos de semanas** no Plano Semanal agora é compacto e **recolhido por padrão**.
+- Toque no cabeçalho para expandir ou recolher; a quantidade de modelos aparece no cabeçalho.
+- O botão **Guardar semana como modelo** foi movido para dentro do painel.
+- Mantidas as ações Aplicar, Editar nome, Duplicar e Excluir, bem como as regras da beta.1.
+- O painel permanece aberto durante atualizações da lista, sem recarregar a página; ao abrir novamente a aplicação, inicia recolhido.
+- **Nenhuma migração SQL nova**: reutilize o banco de testes beta.1 já configurado.
+- Os arquivos SQL completos continuam na pasta `sql/`, para instalações do zero.
+
+### Homologação
+
+A beta.1 foi aprovada nos Testes 01 (6/6), 02 (11/11) e 03 (11/11). A beta.2 requer teste visual e regressão do painel. Não publique no ambiente 1.7.6 estável.

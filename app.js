@@ -1,6 +1,6 @@
 'use strict';
-const SUPABASE_URL='https://ghscxbyziztrrotyizcx.supabase.co/rest/v1/';
-const PUBLIC_KEY='sb_publishable_joaqsHtk6EQQhpdaHMno4w_97x3T8lN';
+const SUPABASE_URL='https://SEU-PROJETO-DE-TESTES.supabase.co';
+const PUBLIC_KEY='SUA_CHAVE_PUBLICAVEL_DE_TESTES';
 const $=id=>document.getElementById(id), D=['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];
 const DEFAULT=[['🦵','Musculação — inferiores',true],['💪','Musculação — superiores',true],['🏃','Corrida de rua',true],['🏃‍♂️','Corrida na esteira',true],['🏓','Padel',true]];
 let client,user,viewId,offset=0,activities=[],workouts=[],goals=[],friends=[],profiles=[],requests=[],loading=false,historyFilter='all',socialReactions=[],socialNudges=[],socialReady=false,recoveryMode=false,friendFilter="all",interactionFilter="all",friendMutes=[],friendEvents=[];
@@ -137,7 +137,7 @@ function historyRange(){const today=dateStr(new Date()),weekStart=dateStr(monday
 function templateWeekRows(wk){return workouts.filter(w=>w.user_id===user.id&&w.scheduled_date>=wk&&w.scheduled_date<shift(wk,7))}
 function templateItems(t){return weekTemplateItems.filter(x=>x.template_id===t.id).sort((a,b)=>a.day_index-b.day_index)}
 function renderTemplates(){
- const root=$('templateList');if(!root)return;root.replaceChildren();
+ const root=$('templateList');if(!root)return;const count=$('templateCount');if(count)count.textContent=`(${weekTemplates.length})`;root.replaceChildren();
  if(!weekTemplates.length)root.append(element('p','small','Nenhum modelo guardado.'));
  for(const t of weekTemplates){const wrap=element('div','social-person'),line=element('div','line');line.append(element('strong','grow',t.name),element('span','small',`${templateItems(t).length} itens`));wrap.append(line);
  const buttons=element('div','line');for(const [label,action] of [['Aplicar',()=>applyTemplate(t)],['Editar nome',()=>renameTemplate(t)],['Duplicar',()=>duplicateTemplate(t)],['Excluir',()=>deleteTemplate(t)]])buttons.append(socialButton(label,action));wrap.append(buttons);root.append(wrap)
