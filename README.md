@@ -1,38 +1,68 @@
-# FitPact 1.8.0-beta.2 — Instalação completa em ambiente de testes
+# FitPact 1.9.0-beta.1 — Ambiente de testes
 
-**Esta distribuição não deve ser publicada sobre a versão 1.7.6 homologada.** O `app.js` deste pacote vem sem as credenciais do projeto de produção; configure exclusivamente um novo projeto Supabase de testes.
+**Não publicar sobre a versão 1.8.0 de produção.** Esta beta utiliza o projeto Supabase de testes `ghscxbyziztrrotyizcx`.
 
-## Instalação do zero
+## Release notes (histórico acumulado)
 
-1. Crie um **novo projeto Supabase**, sem reutilizar o projeto de produção.
-2. Abra **SQL Editor** nesse projeto e execute **um arquivo de cada vez**, pela ordem numérica da pasta `sql/`, de `00` a `06`. Aguarde a confirmação de sucesso antes de continuar.
-3. Execute `sql/07_verificar_instalacao.sql` e confira que todas as tabelas e funções listadas aparecem. Se ocorrer erro, pare e envie a mensagem; não avance pulando etapas.
-4. Em **Authentication → Providers**, configure e-mail e a confirmação de e-mail conforme sua estratégia de teste. Em **Authentication → URL Configuration**, ajuste Site URL e Redirect URLs para o endereço da **beta**, nunca o da produção.
-5. Abra `app.js` e substitua **somente** `SUPABASE_URL` e `PUBLIC_KEY` pelo URL e pela chave **publishable/anon** do novo projeto de testes. **Nunca use `service_role` ou uma chave secreta no navegador.**
-6. Publique `index.html`, `app.js`, `manifest.webmanifest`, ícones e demais arquivos web num **repositório GitHub Pages separado**. A pasta `sql/` é para administração do banco e não precisa ser publicada no site.
-7. Crie contas de teste novas. O ambiente não contém os usuários, amizades ou treinos de produção.
+### 1.9.0-beta.1 — 19/10/2026
+- **FP-46:** nova aba **Evolução** com dias treinados, atividades concluídas, semanas com meta atingida e taxa de cumprimento.
+- **FP-47:** gráfico semanal de dias treinados versus meta, com identificação de semanas parciais, sem meta e em andamento.
+- **FP-51:** filtros de 1, 3, 6 e 12 meses e intervalo personalizado.
+- **FP-52:** indicadores derivados dos treinos já guardados, recalculados após alterações.
+- **FP-53:** interface adaptada a dispositivos móveis; detalhes recolhíveis.
+- **Ainda não incluído:** calendário de consistência, distribuição por atividade e comparação mensal (betas seguintes).
+- **SQL:** nenhuma nova migração. Pasta `sql/` contém os scripts históricos para instalações novas, **não executar novamente** num banco já atualizado.
 
-### Arquivos SQL (ordem obrigatória)
+### 1.8.0 — 19/10/2026 (estável, homologada em produção)
+- **FP-39:** guardar semanas como modelos privados, com dias, atividades, horários, PT e observações.
+- **FP-40:** aplicar modelos na semana atual ou futura, adicionando sem duplicar ou substituindo o plano mediante confirmação e proteção de treinos executados.
+- **FP-41:** renomear, duplicar e excluir modelos sem modificar semanas já aplicadas.
+- **FP-42 a FP-44:** sequência atual de semanas com meta atingida, recorde pessoal e apresentação no Histórico; semanas sem meta neutras; semanas futuras concluídas antecipadamente não antecipam a sequência.
+- **FP-45:** painel Modelos de semanas recolhido por padrão, com contagem de modelos e funções preservadas.
+- **Validação:** 47 verificações aprovadas em beta, nenhuma falha; módulo Amigos confirmado como funcional após a publicação em produção.
+- **Banco de dados:** migração `sql/06_migration_v1_8_0_beta_1.sql` aplicada e confirmada em produção.
 
-| Ordem | Arquivo | Finalidade |
-|---|---|---|
-| 00 | `sql/00_esquema_inicial.sql` | Tabelas iniciais, funções e RLS |
-| 01 | `sql/01_migration_v1_5.sql` | PT e horários |
-| 02 | `sql/02_migration_v1_7_0.sql` | Social: reações e incentivos |
-| 03 | `sql/03_migration_v1_7_1.sql` | Amizades reversíveis, preferências e eventos |
-| 04 | `sql/04_migration_v1_7_2.sql` | Descrição e ativação de atividades |
-| 05 | `sql/05_migration_v1_7_5.sql` | Nome em convites pendentes |
-| 06 | `sql/06_migration_v1_8_0_beta_1.sql` | Modelos de semanas e aplicação transacional |
-| 07 | `sql/07_verificar_instalacao.sql` | Verificação de tabelas e funções, somente leitura |
-
-**Nota:** os arquivos `00` e `01` foram recuperados dos pacotes originais do projeto; `02` a `06` correspondem às migrações históricas presentes na beta. Não foi possível executar estas migrações contra um projeto Supabase real nesta sessão. O pacote foi inspecionado estaticamente, mas o primeiro teste SQL precisa ser feito no novo projeto.
+## Instruções da beta
+1. Usar um repositório GitHub Pages **separado** do FitPact de produção.
+2. O `app.js` já contém a URL e a chave pública do projeto Supabase de testes.
+3. Não executar migrações novamente se o ambiente beta já possui as tabelas da 1.8.0.
+4. Confirmar login, acesso à aba Evolução, filtros, valores, gráfico e atualizações após editar um treino.
 
 ---
 
+## Documentação histórica da 1.8.0 e versões anteriores
+
+# FitPact 1.8.0 — Distribuição de produção
+
+**Status: publicação autorizada com ressalva.** Origem funcional: 1.8.0-beta.2, aprovada nos testes executados (47 aprovados, 0 falhas, 6 testes sociais não executados). A versão 1.7.6 deve permanecer arquivada para reversão.
+
+## Implantação sobre a versão 1.7.6
+
+1. **Banco de dados:** a migração `sql/06_migration_v1_8_0_beta_1.sql` já foi executada com sucesso no projeto de produção, segundo confirmação do responsável. **Não execute novamente os scripts SQL para esta publicação.**
+2. **Backup:** preserve cópia dos dados Supabase e do pacote da aplicação 1.7.6 antes da publicação.
+3. **Configuração:** `app.js` já aponta para `https://nrctuwibfkwbpworhvtc.supabase.co` e contém a chave **publishable** de produção. Não trocar por credenciais beta ou `service_role`.
+4. **GitHub Pages:** publique os arquivos web (`index.html`, `app.js`, `manifest.webmanifest`, ícones) no repositório de produção `viniciusfac/fitpact`. `sql/` e `docs/` são documentação administrativa, não precisam ser publicados no Pages.
+5. **Cache:** faça recarregamento forçado da página/PWA e confirme que o título apresenta `v1.8.0`.
+6. **Smoke test:** autenticação, carregamento de atividades/histórico antigos, criação e aplicação de modelo, sequência de consistência, compartilhamento e acesso no celular.
+7. **Ressalva:** testar o módulo Amigos com duas contas e registrar resultados em `docs/HOMOLOGACAO_1_8_0.md`.
+
+## Reversão
+
+Se houver falha crítica, restaure **somente os arquivos web da 1.7.6** no GitHub Pages. Não reverta automaticamente a migração SQL aditiva 1.8.0, pois a versão anterior não depende das tabelas novas. A reversão da aplicação não deve apagar modelos nem dados de usuários.
+
+## Organização dos scripts SQL
+
+- `sql/00` a `sql/05`: histórico para instalação do zero, **não executar em produção existente**.
+- `sql/06_migration_v1_8_0_beta_1.sql`: migração 1.8.0, **já aplicada em produção**.
+- `sql/07_verificar_instalacao.sql`: consulta de verificação, opcional, somente leitura.
+
+---
+
+
 # FitPact 🏆
 
-**Versão de testes: 1.8.0-beta.2 · 19/10/2026**  
-**Última versão estável: 1.7.6 · 18/10/2026**  
+**Versão de produção: 1.8.0 · 19/10/2026 (homologação com ressalva)**  
+**Versão anterior: 1.7.6 · 18/10/2026**  
 **Slogan:** O compromisso é contigo.
 
 FitPact é uma aplicação web progressiva (PWA), em português brasileiro, para organizar treinos semanais, acompanhar metas e compartilhar a evolução com amigos. Funciona no navegador e pode ser instalada na tela inicial do celular ou no computador.
@@ -238,3 +268,24 @@ FitPact é uma aplicação web progressiva (PWA), em português brasileiro, para
 ### Homologação
 
 A beta.1 foi aprovada nos Testes 01 (6/6), 02 (11/11) e 03 (11/11). A beta.2 requer teste visual e regressão do painel. Não publique no ambiente 1.7.6 estável.
+
+---
+
+## Preparação de homologação da 1.8.0 — 19/10/2026
+
+**Status:** 47 verificações aprovadas, zero falhas reportadas e seis verificações do módulo Amigos não executadas. As funcionalidades principais estão aprovadas nos cenários testados, mas a homologação integral está pendente. **Esta distribuição conserva o código 1.8.0-beta.2** e não constitui nova compilação estável.
+
+Documentação adicional:
+- `docs/HOMOLOGACAO_1_8_0.md`: critérios de aceite, evidências, ressalva e pendências.
+- `docs/NOTAS_LANCAMENTO_1_8_0.md`: notas de lançamento propostas e histórico.
+
+Os scripts de banco permanecem exclusivamente em `sql/`. A versão 1.7.6 de produção não deve ser substituída sem uma decisão explícita de publicação e um plano de reversão.
+
+
+## Lançamento 1.8.0 em produção — 19/10/2026
+
+- Modelos de semanas: guardar, aplicar (adicionar sem duplicar ou substituir), renomear, duplicar e excluir.
+- Painel de modelos recolhível por padrão.
+- Sequência atual e recorde pessoal com semanas sem meta neutras e semanas futuras fora do cálculo até a data cronológica.
+- 47 verificações aprovadas, zero falhas, seis verificações do módulo Amigos não executadas; **homologação com ressalva**.
+- Migração SQL 1.8.0 confirmada como aplicada em produção antes da distribuição.

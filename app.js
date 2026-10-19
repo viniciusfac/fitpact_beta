@@ -1,10 +1,11 @@
 'use strict';
-const SUPABASE_URL='https://ghscxbyziztrrotyizcx.supabase.co/rest/v1/';
+const SUPABASE_URL='https://ghscxbyziztrrotyizcx.supabase.co';
 const PUBLIC_KEY='sb_publishable_joaqsHtk6EQQhpdaHMno4w_97x3T8lN';
 const $=id=>document.getElementById(id), D=['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];
 const DEFAULT=[['🦵','Musculação — inferiores',true],['💪','Musculação — superiores',true],['🏃','Corrida de rua',true],['🏃‍♂️','Corrida na esteira',true],['🏓','Padel',true]];
 let client,user,viewId,offset=0,activities=[],workouts=[],goals=[],friends=[],profiles=[],requests=[],loading=false,historyFilter='all',socialReactions=[],socialNudges=[],socialReady=false,recoveryMode=false,friendFilter="all",interactionFilter="all",friendMutes=[],friendEvents=[];
 let weekTemplates=[],weekTemplateItems=[];
+let evolutionFilter='three';
 let noticeTimer;const notice=t=>{const el=$('notice');el.textContent=t;el.hidden=false;clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>{el.hidden=true},5000)};
 const monday=o=>{let d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDate()-(d.getDay()+6)%7+o*7);return d};
 const dateStr=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -77,7 +78,7 @@ function renderRequests(){
 }
 function weeklyStats(week,personId=viewId){const rows=workouts.filter(w=>w.user_id===personId&&w.status==='done'&&w.completed_date>=week&&w.completed_date<shift(week,7));const trainingDays=new Set(rows.filter(w=>w.actual_counts_as_training).map(w=>w.completed_date)).size;const target=new Set(workouts.filter(w=>w.user_id===personId&&w.scheduled_date>=week&&w.scheduled_date<shift(week,7)&&w.planned_counts_as_training&&!w.extra_workout&&w.status!=='rescheduled').map(w=>w.scheduled_date)).size;return {trainingDays,activities:rows.length,target,rows}}
 function indicator(s){return s.target>0&&s.trainingDays>=s.target?'🟢':s.trainingDays>0?'🟡':'🔴'}
-function render(){selectOptions();renderRequests();const week=currentWeek(),s=weeklyStats(week,user.id);$('weekLabel').textContent=`${fmtDate(week)} a ${fmtDate(shift(week,6))}`;$('repeat').disabled=!owned()||week<dateStr(monday(0));$('resetWeek').disabled=!owned()||week<dateStr(monday(0));$('daysCount').textContent=s.trainingDays;$('activitiesCount').textContent=s.activities;$('goalCount').textContent=s.target;$('result').textContent=indicator(s);renderDays(week);renderTemplates();renderLibrary();renderHistory();renderConsistency();renderSocial()}
+function render(){selectOptions();renderRequests();const week=currentWeek(),s=weeklyStats(week,user.id);$('weekLabel').textContent=`${fmtDate(week)} a ${fmtDate(shift(week,6))}`;$('repeat').disabled=!owned()||week<dateStr(monday(0));$('resetWeek').disabled=!owned()||week<dateStr(monday(0));$('daysCount').textContent=s.trainingDays;$('activitiesCount').textContent=s.activities;$('goalCount').textContent=s.target;$('result').textContent=indicator(s);renderDays(week);renderTemplates();renderLibrary();renderHistory();renderConsistency();renderSocial();renderEvolution()}
 function renderDays(week){const root=$('days');root.replaceChildren();for(let i=0;i<7;i++){const day=shift(week,i),block=document.createElement('div');block.className='day';const title=document.createElement('div');title.className='line';title.innerHTML=`<b>${D[i]} ${fmtDate(day)}</b>`;const rows=workouts.filter(w=>w.user_id===user.id&&w.scheduled_date===day);const rest=rows.some(isRecovery);if(owned()){if(!rest){const add=document.createElement('button');add.className='secondary';add.textContent='+ Exercício';add.onclick=()=>addWorkout(day);title.append(add)}if(!rows.length){const restBtn=document.createElement('button');restBtn.className='secondary';restBtn.textContent='🧘 Recuperação';restBtn.onclick=()=>addRecovery(day);title.append(restBtn)}}block.append(title);for(const w of rows){const line=document.createElement('div');line.className='entry';const desc=document.createElement('span');desc.className='grow';desc.textContent=`${effectiveEmoji(w)} ${effectiveActivity(w)}${w.with_pt?' · 👤 PT':''}`+(w.start_time?` · ${String(w.start_time).slice(0,5)}${w.end_time?'–'+String(w.end_time).slice(0,5):''}`:'')+` ${isRecovery(w)?'':({planned:'⏳',done:'✅',missed:'❌',rescheduled:'➡️'}[w.status])}`+(w.notes?` · 📝 ${w.notes}`:'');line.append(desc);if(w.status==='done'&&w.actual_name&&w.actual_name!==w.planned_name){const changed=document.createElement('button');changed.className='secondary';changed.textContent='🕘';changed.title='Ver atividade originalmente planejada';changed.setAttribute('aria-label','Ver atividade originalmente planejada');changed.onclick=()=>notice('Planejado originalmente: '+w.planned_emoji+' '+w.planned_name);line.append(changed)}if(owned()&&isRecovery(w)){const note=document.createElement('button');note.className='secondary';note.textContent='📝 Observação';note.onclick=()=>editRecoveryNote(w);line.append(note);const remove=document.createElement('button');remove.className='secondary';remove.textContent='Remover recuperação';remove.onclick=()=>removeWorkout(w);line.append(remove);const swap=document.createElement('button');swap.className='secondary';swap.textContent='🔄 Substituir por treino extra';swap.onclick=()=>convertRecovery(w);line.append(swap)}else if(owned()){const actions=w.status==='rescheduled'?[['🗑',()=>removeWorkout(w)]]:[['✅',()=>complete(w)],['🔄',()=>complete(w,true)],['❌',()=>updateWorkout(w,{status:w.status==='missed'?'planned':'missed',completed_date:null,actual_activity_id:null,actual_name:null,actual_emoji:null,actual_counts_as_training:null})],['↪',()=>reschedule(w)],['✎',()=>editWorkout(w)],['🗑',()=>removeWorkout(w)]];for(const [label,action] of actions){const b=document.createElement('button');b.className='secondary';b.textContent=label;b.onclick=action;line.append(b)}}block.append(line)}root.append(block)}}
 async function editRecoveryNote(w){const value=prompt('Observação do dia de recuperação (até 500 caracteres):',w.notes||'');if(value===null)return;if(value.length>500)return notice('A observação deve ter até 500 caracteres.');await updateWorkout(w,{notes:value.trim()||null})}
 async function convertRecovery(w){
@@ -133,7 +134,7 @@ async function editActivity(a){
 function monthsAgo(date,months){const d=new Date(date+'T12:00:00'),day=d.getDate();d.setDate(1);d.setMonth(d.getMonth()-months);const last=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();d.setDate(Math.min(day,last));return dateStr(d)}
 function historyRange(){const today=dateStr(new Date()),weekStart=dateStr(monday(0));switch(historyFilter){case 'week':return [shift(weekStart,-7),shift(weekStart,-1)];case 'month':return [shift(today,-29),today];case 'six':return [monthsAgo(today,6),today];case 'year':return [monthsAgo(today,12),today];case 'custom':return [$('historyStart').value||'0001-01-01',$('historyEnd').value||'9999-12-31'];default:return ['0001-01-01','9999-12-31']}}
 
-// 1.8.0 beta: modelos privados e consistência calculada, sem alterar os dados da 1.7.6.
+// 1.8.0: modelos privados e consistência calculada. Publicação com ressalva de testes sociais.
 function templateWeekRows(wk){return workouts.filter(w=>w.user_id===user.id&&w.scheduled_date>=wk&&w.scheduled_date<shift(wk,7))}
 function templateItems(t){return weekTemplateItems.filter(x=>x.template_id===t.id).sort((a,b)=>a.day_index-b.day_index)}
 function renderTemplates(){
@@ -153,6 +154,71 @@ async function applyTemplate(t){const wk=currentWeek();if(wk<dateStr(monday(0)))
 }
 function consistencyStats(personId){const todayWeek=dateStr(monday(0)),weekSet=new Set(workouts.filter(w=>w.user_id===personId&&w.scheduled_date<=shift(todayWeek,6)).map(w=>mondayOf(w.scheduled_date)));const weeks=[...weekSet].filter(w=>w<=todayWeek).sort();let current=0,record=0,runLength=0;const ended=weeks.filter(w=>w<todayWeek);for(const w of ended){const s=weeklyStats(w,personId);if(s.target===0)continue;if(s.trainingDays>=s.target){runLength++;record=Math.max(record,runLength)}else runLength=0}current=runLength;const now=weeklyStats(todayWeek,personId);if(now.target>0&&now.trainingDays>=now.target){current++;record=Math.max(record,current)}return {current,record}}
 function renderConsistency(){const root=$('consistencyStats');if(!root)return;const s=consistencyStats(viewId);root.textContent=`🔥 Sequência atual: ${s.current} semana(s) · 🏆 Recorde: ${s.record} semana(s)`}
+
+
+// 1.9.0-beta.1 — Painel de evolução: somente leitura dos dados existentes.
+function evolutionRange(){
+ const today=dateStr(new Date());
+ switch(evolutionFilter){
+  case 'one':return [monthsAgo(today,1),today];
+  case 'three':return [monthsAgo(today,3),today];
+  case 'six':return [monthsAgo(today,6),today];
+  case 'year':return [monthsAgo(today,12),today];
+  case 'custom':return [$('evolutionStart').value||today,$('evolutionEnd').value||today];
+  default:return [monthsAgo(today,3),today];
+ }
+}
+function evolutionData(start,end){
+ const today=dateStr(new Date()),last=end<today?end:today;
+ if(start>last)return {weeks:[],days:0,activities:0,hits:0,eligible:0,fulfilled:0,planned:0};
+ const mine=workouts.filter(w=>w.user_id===user.id);
+ const done=mine.filter(w=>w.status==='done'&&w.completed_date&&w.completed_date>=start&&w.completed_date<=last);
+ const days=new Set(done.filter(w=>w.actual_counts_as_training).map(w=>w.completed_date)).size;
+ const weeks=[];let hits=0,eligible=0,fulfilled=0,planned=0;
+ for(let wk=mondayOf(start),i=0;wk<=last&&i<60;wk=shift(wk,7),i++){
+  const from=wk<start?start:wk,to=shift(wk,6)>last?last:shift(wk,6);
+  const scheduled=new Set(mine.filter(w=>w.scheduled_date>=from&&w.scheduled_date<=to&&w.planned_counts_as_training&&!w.extra_workout&&w.status!=='rescheduled').map(w=>w.scheduled_date));
+  const actual=new Set(done.filter(w=>w.actual_counts_as_training&&w.completed_date>=from&&w.completed_date<=to).map(w=>w.completed_date));
+  const goal=scheduled.size,real=actual.size;
+  const full=from===wk&&to===shift(wk,6);
+  // Taxa: semanas sem meta são neutras; semanas parciais usam apenas dias abrangidos.
+  if(goal){eligible++;planned+=goal;fulfilled+=Math.min(goal,real);if(full&&real>=goal)hits++}
+  weeks.push({week:wk,from,to,goal,real,full});
+ }
+ return {weeks,days,activities:done.length,hits,eligible,fulfilled,planned};
+}
+function renderEvolution(){
+ const root=$('evolutionContent');if(!root||!user)return;
+ const [start,end]=evolutionRange();root.replaceChildren();
+ if(start>end){root.append(element('p','small','A data inicial não pode ser posterior à data final.'));return}
+ const data=evolutionData(start,end),pct=data.planned?Math.round(100*data.fulfilled/data.planned):null;
+ const stats=element('div','evolution-stats');
+ for(const [value,label] of [[data.days,'Dias treinados'],[data.activities,'Atividades concluídas'],[data.hits,'Semanas com meta atingida'],[pct===null?'—':pct+'%','Cumprimento da meta']]){
+  const card=element('div','evolution-stat');card.append(element('strong','',String(value)),element('span','small',label));stats.append(card)
+ }
+ root.append(stats);
+ const note=element('p','small',`Período: ${fmtDate(start)} a ${fmtDate(end)} · Apenas resultados até hoje. Metas semanais parciais consideram os dias dentro do filtro.`);root.append(note);
+ const details=element('details','evolution-panel');details.open=true;
+ const summary=element('summary','','📊 Dias treinados × meta semanal');details.append(summary);
+ if(!data.weeks.length){details.append(element('p','small','Nenhum período disponível para apresentar.'));root.append(details);return}
+ const chart=element('div','evolution-chart');chart.setAttribute('role','list');
+ for(const w of data.weeks){
+  const item=element('div','evolution-week');item.setAttribute('role','listitem');
+  const header=element('div','evolution-week-title',`${fmtDate(w.from)}–${fmtDate(w.to)}${!w.full?' · parcial':''}`);
+  const bars=element('div','evolution-bars');
+  const max=Math.max(1,w.goal,w.real);
+  for(const [count,cls,label] of [[w.goal,'goal','Meta'],[w.real,'done','Realizado']]){
+   const line=element('div','evolution-bar-line');
+   const labelEl=element('span','',label);
+   const track=element('div','evolution-track');const fill=element('div','evolution-fill '+cls);fill.style.width=(count/max*100)+'%';track.append(fill);
+   line.append(labelEl,track,element('b','',String(count)));bars.append(line)
+  }
+  const status=w.goal===0?'Sem meta':w.real>=w.goal?'Meta atingida':w.to===dateStr(new Date())?'Em andamento':'Abaixo da meta';
+  item.append(header,bars,element('div','small',status));chart.append(item)
+ }
+ details.append(chart);root.append(details);
+ root.append(element('p','small','O calendário, a distribuição por atividade e a comparação mensal serão incluídos nas próximas betas da 1.9.0.'));
+}
 
 function renderHistory(){const root=$('history');root.replaceChildren();$('historyDetails').textContent='';const [start,end]=historyRange();if(start>end){root.textContent='A data inicial não pode ser posterior à data final.';return}const relevant=workouts.filter(w=>w.user_id===viewId&&((w.status==='done'&&w.completed_date?w.completed_date:w.scheduled_date)>=start&&(w.status==='done'&&w.completed_date?w.completed_date:w.scheduled_date)<=end));const weeks=[...new Set(relevant.map(w=>mondayOf(w.status==='done'&&w.completed_date?w.completed_date:w.scheduled_date)))].sort().reverse();let hits=0,totalDays=0,totalActs=0;for(const wk of weeks){const all=weeklyStats(wk,viewId);const inRange=relevant.filter(w=>w.status==='done'&&w.completed_date>=wk&&w.completed_date<shift(wk,7));const days=new Set(inRange.filter(w=>w.actual_counts_as_training).map(w=>w.completed_date)).size;totalDays+=days;totalActs+=inRange.length;if(all.target>0&&all.trainingDays>=all.target)hits++;const b=document.createElement('button');b.className='secondary';b.textContent=`${indicator(all)} ${fmtDate(wk)} a ${fmtDate(shift(wk,6))} · ${days}/${all.target} dias · ${inRange.length} atividades`;b.onclick=()=>{$('historyDetails').textContent=`Semana ${fmtDate(wk)} a ${fmtDate(shift(wk,6))}\nMeta de dias: ${all.target} | Atividades concluídas: ${inRange.length} | Dias concluídos: ${days}\n\n`+relevant.filter(w=>{const d=w.status==='done'&&w.completed_date?w.completed_date:w.scheduled_date;return d>=wk&&d<shift(wk,7)}).sort((a,b)=>a.scheduled_date.localeCompare(b.scheduled_date)).map(w=>`${fmtDate(w.scheduled_date)}: ${effectiveEmoji(w)} ${effectiveActivity(w)} ${w.status==='done'?'✅':w.status==='missed'?'❌':w.status==='rescheduled'?'➡️':'⏳'}${w.status==='done'&&w.actual_name!==w.planned_name?' (substituiu '+w.planned_name+')':''}${w.completed_date?' (concluído em '+fmtDate(w.completed_date)+')':''}`).join('\n')};root.append(b)}$('historyStats').textContent=`${weeks.length} semanas registradas · ${hits} metas atingidas · ${totalActs} atividades concluídas · ${totalDays} dias concluídos`;if(!weeks.length)root.textContent='Nenhuma atividade encontrada neste período.'}
 function summary(){
@@ -281,7 +347,7 @@ $('saveNewPassword').onclick=async()=>{
   try{const {data,error}=await client.auth.getSession();if(error)throw error;if(!data.session)throw Error('Link expirado ou inválido. Solicite outro link de recuperação.');const result=await client.auth.updateUser({password});if(result.error)throw result.error;$('newPassword').value='';$('confirmPassword').value='';history.replaceState(null,'',location.pathname);recoveryMode=false;$('passwordRecovery').classList.add('hide');notice('Senha alterada com sucesso.');await signed(result.data.user||data.session.user)}catch(e){notice('Não foi possível alterar a senha: '+e.message)}
 };
 $('cancelRecovery').onclick=()=>{recoveryMode=false;history.replaceState(null,'',location.pathname);$('passwordRecovery').classList.add('hide');$('auth').classList.remove('hide')};
-$('logout').onclick=()=>client.auth.signOut();document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{const tab=b.dataset.tab;for(const id of ['plan','history','activities','friends','settings'])$('tab-'+id).classList.toggle('hide',id!==tab);$('tab-share').classList.toggle('hide',tab!=='plan');document.querySelectorAll('[data-tab]').forEach(x=>{x.classList.toggle('active',x.dataset.tab===tab);x.classList.toggle('secondary',x.dataset.tab!==tab)})});$('socialFriendFilter').onchange=()=>{friendFilter=$('socialFriendFilter').value;renderSocial()};$('interactionFilter').onchange=()=>{interactionFilter=$('interactionFilter').value;renderSocial()};$('historyFilter').onchange=()=>{historyFilter=$('historyFilter').value;for(const id of ['historyStart','historyEnd'])$(id).classList.toggle('hide',historyFilter!=='custom');renderHistory()};for(const id of ['historyStart','historyEnd'])$(id).onchange=renderHistory;$('prev').onclick=()=>{offset--;render()};$('next').onclick=()=>{offset++;render()};$('historyViewer').onchange=()=>{viewId=$('historyViewer').value;render()};
+$('logout').onclick=()=>client.auth.signOut();document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{const tab=b.dataset.tab;for(const id of ['plan','history','activities','friends','settings','evolution'])$('tab-'+id).classList.toggle('hide',id!==tab);$('tab-share').classList.toggle('hide',tab!=='plan');document.querySelectorAll('[data-tab]').forEach(x=>{x.classList.toggle('active',x.dataset.tab===tab);x.classList.toggle('secondary',x.dataset.tab!==tab)})});$('socialFriendFilter').onchange=()=>{friendFilter=$('socialFriendFilter').value;renderSocial()};$('interactionFilter').onchange=()=>{interactionFilter=$('interactionFilter').value;renderSocial()};$('evolutionFilter').onchange=()=>{evolutionFilter=$('evolutionFilter').value;for(const id of ['evolutionStart','evolutionEnd'])$(id).classList.toggle('hide',evolutionFilter!=='custom');renderEvolution()};for(const id of ['evolutionStart','evolutionEnd'])$(id).onchange=renderEvolution;$('historyFilter').onchange=()=>{historyFilter=$('historyFilter').value;for(const id of ['historyStart','historyEnd'])$(id).classList.toggle('hide',historyFilter!=='custom');renderHistory()};for(const id of ['historyStart','historyEnd'])$(id).onchange=renderHistory;$('prev').onclick=()=>{offset--;render()};$('next').onclick=()=>{offset++;render()};$('historyViewer').onchange=()=>{viewId=$('historyViewer').value;render()};
 
 $('saveWeekTemplate').onclick=saveTemplateFromWeek;
 $('resetWeek').onclick=async()=>{const wk=currentWeek();if(!owned()||wk<dateStr(monday(0)))return notice('Semanas anteriores não podem ser reiniciadas.');const rows=workouts.filter(w=>w.user_id===user.id&&w.scheduled_date>=wk&&w.scheduled_date<shift(wk,7));if(!rows.length)return notice('Esta semana não tem registros para reiniciar.');if(!confirm('Reiniciar a semana de '+fmtDate(wk)+'? Isso excluirá permanentemente '+rows.length+' registro(s) desta semana, incluindo resultados. Esta ação não pode ser desfeita.'))return;await run(()=>call(client.from('workouts').delete().eq('user_id',user.id).gte('scheduled_date',wk).lt('scheduled_date',shift(wk,7))))};
