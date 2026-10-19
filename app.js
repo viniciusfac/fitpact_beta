@@ -6,6 +6,8 @@ const DEFAULT=[['🦵','Musculação — inferiores',true],['💪','Musculação
 let client,user,viewId,offset=0,activities=[],workouts=[],goals=[],friends=[],profiles=[],requests=[],loading=false,historyFilter='all',socialReactions=[],socialNudges=[],socialReady=false,recoveryMode=false,friendFilter="all",interactionFilter="all",friendMutes=[],friendEvents=[];
 let weekTemplates=[],weekTemplateItems=[];
 let evolutionFilter='three';
+let evolutionCalendarMonth=null;
+const evolutionOpenPanels=new Set();
 let noticeTimer;const notice=t=>{const el=$('notice');el.textContent=t;el.hidden=false;clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>{el.hidden=true},5000)};
 const monday=o=>{let d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDate()-(d.getDay()+6)%7+o*7);return d};
 const dateStr=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -189,6 +191,11 @@ function evolutionData(start,end){
 }
 function renderEvolution(){
  const root=$('evolutionContent');if(!root||!user)return;
+ // Preservar os painéis abertos durante atualizações dos treinos e filtros.
+ for(const panel of root.querySelectorAll('details[data-evolution-panel]')){
+  if(panel.open)evolutionOpenPanels.add(panel.dataset.evolutionPanel);
+  else evolutionOpenPanels.delete(panel.dataset.evolutionPanel);
+ }
  const [start,end]=evolutionRange();root.replaceChildren();
  if(start>end){root.append(element('p','small','A data inicial não pode ser posterior à data final.'));return}
  const data=evolutionData(start,end),pct=data.planned?Math.round(100*data.fulfilled/data.planned):null;
@@ -198,9 +205,9 @@ function renderEvolution(){
  }
  root.append(stats);
  const note=element('p','small',`Período: ${fmtDate(start)} a ${fmtDate(end)} · Apenas resultados até hoje. Metas semanais parciais consideram os dias dentro do filtro.`);root.append(note);
- const details=element('details','evolution-panel');details.open=true;
- const summary=element('summary','','📊 Dias treinados × meta semanal');details.append(summary);
- if(!data.weeks.length){details.append(element('p','small','Nenhum período disponível para apresentar.'));root.append(details);return}
+ const details=evolutionPanel('weekly','📊 Dias treinados × meta semanal');
+
+ if(!data.weeks.length){details.append(element('p','small','Nenhum período disponível para apresentar.'));root.append(details);renderEvolutionCalendar(root,start,end);renderEvolutionDistribution(root,start,end);return}
  const chart=element('div','evolution-chart');chart.setAttribute('role','list');
  for(const w of data.weeks){
   const item=element('div','evolution-week');item.setAttribute('role','listitem');
@@ -217,7 +224,96 @@ function renderEvolution(){
   item.append(header,bars,element('div','small',status));chart.append(item)
  }
  details.append(chart);root.append(details);
- root.append(element('p','small','O calendário, a distribuição por atividade e a comparação mensal serão incluídos nas próximas betas da 1.9.0.'));
+ renderEvolutionCalendar(root,start,end);
+ renderEvolutionDistribution(root,start,end);
+}
+
+
+// FP-48/49: painéis independentes, recolhidos por padrão e sem consultas adicionais.
+function evolutionPanel(id,title){
+ const details=element('details','evolution-panel');
+ details.dataset.evolutionPanel=id;
+ details.open=evolutionOpenPanels.has(id);
+ details.append(element('summary','',title));
+ details.addEventListener('toggle',()=>{if(details.open)evolutionOpenPanels.add(id);else evolutionOpenPanels.delete(id)});
+ return details;
+}
+function evolutionMonthStart(date){return date.slice(0,7)+'-01'}
+function evolutionMonthShift(date,n){
+ const d=new Date(date.slice(0,7)+'-01T12:00:00');
+ d.setMonth(d.getMonth()+n);
+ return dateStr(d);
+}
+function renderEvolutionCalendar(root,start,end){
+ const panel=evolutionPanel('calendar','🗓️ Calendário de consistência');
+ const today=dateStr(new Date()),limit=end<today?end:today;
+ const earliest=evolutionMonthStart(start),latest=evolutionMonthStart(limit);
+ if(start>limit){panel.append(element('p','small','Não há dias decorridos neste período.'));root.append(panel);return}
+ if(!evolutionCalendarMonth||evolutionCalendarMonth<earliest||evolutionCalendarMonth>latest)evolutionCalendarMonth=latest;
+ const month=evolutionCalendarMonth;
+ const controls=element('div','line evolution-calendar-controls');
+ const previous=element('button','secondary','◀'),next=element('button','secondary','▶');
+ previous.type=next.type='button';
+ previous.disabled=month<=earliest;next.disabled=month>=latest;
+ const monthLabel=element('strong','',new Date(month+'T12:00:00').toLocaleDateString('pt-BR',{month:'long',year:'numeric'}));
+ previous.onclick=()=>{evolutionCalendarMonth=evolutionMonthShift(month,-1);renderEvolution()};
+ next.onclick=()=>{evolutionCalendarMonth=evolutionMonthShift(month,1);renderEvolution()};
+ controls.append(previous,monthLabel,next);panel.append(controls);
+ const legend=element('p','small','● Verde: treino concluído · Cinza: sem treino · Dias futuros: indisponíveis');
+ panel.append(legend);
+ const grid=element('div','evolution-calendar');
+ for(const d of ['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'])grid.append(element('span','evolution-calendar-weekday',d));
+ const first=new Date(month+'T12:00:00'),offset=(first.getDay()+6)%7;
+ for(let i=0;i<offset;i++)grid.append(element('span','evolution-calendar-blank',''));
+ const daysInMonth=new Date(first.getFullYear(),first.getMonth()+1,0).getDate();
+ const mine=workouts.filter(w=>w.user_id===user.id&&w.status==='done'&&w.actual_counts_as_training&&w.completed_date);
+ const details=element('div','evolution-day-details small','Toque num dia para consultar os treinos.');
+ for(let day=1;day<=daysInMonth;day++){
+  const date=month.slice(0,7)+'-'+String(day).padStart(2,'0');
+  const eligible=date>=start&&date<=limit;
+  const entries=eligible?mine.filter(w=>w.completed_date===date):[];
+  const btn=element('button','evolution-calendar-day'+(entries.length?' trained':'')+(!eligible?' unavailable':''),String(day));
+  btn.type='button';btn.disabled=!eligible;
+  btn.setAttribute('aria-label',`${fmtDate(date)}: ${entries.length} treino(s) concluído(s)`);
+  btn.onclick=()=>{
+   details.replaceChildren(element('strong','',fmtDate(date)));
+   if(!entries.length)details.append(element('p','small','Nenhum treino concluído neste dia.'));
+   else {
+    const list=element('ul','');
+    for(const w of entries)list.append(element('li','',`${effectiveEmoji(w)||'🏃'} ${effectiveActivity(w)||'Atividade'}`));
+    details.append(list);
+   }
+  };
+  grid.append(btn);
+ }
+ panel.append(grid,details);root.append(panel);
+}
+function renderEvolutionDistribution(root,start,end){
+ const panel=evolutionPanel('distribution','🥧 Distribuição por atividade');
+ const today=dateStr(new Date()),limit=end<today?end:today;
+ const done=workouts.filter(w=>w.user_id===user.id&&w.status==='done'&&w.completed_date&&w.completed_date>=start&&w.completed_date<=limit&&w.actual_counts_as_training);
+ const counts=new Map();
+ for(const w of done){
+  // O nome realizado tem prioridade sobre o planejado, preservando o histórico.
+  const label=String(effectiveActivity(w)||'Atividade sem nome').trim();
+  const key=normalizedActivityName(label);
+  const item=counts.get(key)||{label,emoji:effectiveEmoji(w)||'🏃',count:0};
+  item.count++;counts.set(key,item);
+ }
+ const items=[...counts.values()].sort((a,b)=>b.count-a.count||a.label.localeCompare(b.label,'pt-BR'));
+ if(!items.length){panel.append(element('p','small','Nenhum treino concluído no período selecionado.'));root.append(panel);return}
+ panel.append(element('p','small',`${done.length} treino(s) concluído(s) no período. Recuperação não conta como treino.`));
+ const list=element('div','evolution-distribution');
+ for(const item of items){
+  const percent=100*item.count/done.length;
+  const row=element('div','evolution-distribution-item');
+  const heading=element('div','evolution-distribution-heading');
+  heading.append(element('span','',`${item.emoji} ${item.label}`),element('strong','',`${item.count} · ${percent.toFixed(1).replace('.',',')}%`));
+  const track=element('div','evolution-track');
+  const fill=element('div','evolution-fill done');fill.style.width=percent+'%';track.append(fill);
+  row.append(heading,track);list.append(row);
+ }
+ panel.append(list);root.append(panel);
 }
 
 function renderHistory(){const root=$('history');root.replaceChildren();$('historyDetails').textContent='';const [start,end]=historyRange();if(start>end){root.textContent='A data inicial não pode ser posterior à data final.';return}const relevant=workouts.filter(w=>w.user_id===viewId&&((w.status==='done'&&w.completed_date?w.completed_date:w.scheduled_date)>=start&&(w.status==='done'&&w.completed_date?w.completed_date:w.scheduled_date)<=end));const weeks=[...new Set(relevant.map(w=>mondayOf(w.status==='done'&&w.completed_date?w.completed_date:w.scheduled_date)))].sort().reverse();let hits=0,totalDays=0,totalActs=0;for(const wk of weeks){const all=weeklyStats(wk,viewId);const inRange=relevant.filter(w=>w.status==='done'&&w.completed_date>=wk&&w.completed_date<shift(wk,7));const days=new Set(inRange.filter(w=>w.actual_counts_as_training).map(w=>w.completed_date)).size;totalDays+=days;totalActs+=inRange.length;if(all.target>0&&all.trainingDays>=all.target)hits++;const b=document.createElement('button');b.className='secondary';b.textContent=`${indicator(all)} ${fmtDate(wk)} a ${fmtDate(shift(wk,6))} · ${days}/${all.target} dias · ${inRange.length} atividades`;b.onclick=()=>{$('historyDetails').textContent=`Semana ${fmtDate(wk)} a ${fmtDate(shift(wk,6))}\nMeta de dias: ${all.target} | Atividades concluídas: ${inRange.length} | Dias concluídos: ${days}\n\n`+relevant.filter(w=>{const d=w.status==='done'&&w.completed_date?w.completed_date:w.scheduled_date;return d>=wk&&d<shift(wk,7)}).sort((a,b)=>a.scheduled_date.localeCompare(b.scheduled_date)).map(w=>`${fmtDate(w.scheduled_date)}: ${effectiveEmoji(w)} ${effectiveActivity(w)} ${w.status==='done'?'✅':w.status==='missed'?'❌':w.status==='rescheduled'?'➡️':'⏳'}${w.status==='done'&&w.actual_name!==w.planned_name?' (substituiu '+w.planned_name+')':''}${w.completed_date?' (concluído em '+fmtDate(w.completed_date)+')':''}`).join('\n')};root.append(b)}$('historyStats').textContent=`${weeks.length} semanas registradas · ${hits} metas atingidas · ${totalActs} atividades concluídas · ${totalDays} dias concluídos`;if(!weeks.length)root.textContent='Nenhuma atividade encontrada neste período.'}
