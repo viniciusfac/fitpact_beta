@@ -1,4 +1,4 @@
-# FitPact 1.10.0-beta.2 — Evolução dos Amigos
+# FitPact 1.10.0-beta.3 — Evolução dos Amigos
 
 **Somente ambiente beta. Não publicar em produção.** Base: 1.9.1-beta.2.
 
@@ -380,3 +380,10 @@ Os scripts de banco permanecem exclusivamente em `sql/`. A versão 1.7.6 de prod
 - Histórico sem título e filtros duplicados.
 - Feed de atividades concluídas dos amigos ampliado para 30 dias, até 10 itens, com reações.
 - Testes sociais e privacidade ainda exigem validação no beta.
+
+### 1.10.0-beta.3 — Ajustes finais de navegação
+- Menu principal: Plano Semanal → Evolução → Amigos → Atividades → Configurações.
+- Removida a exibição duplicada de Sequência atual e Recorde no Histórico detalhado; cartões superiores permanecem.
+- Mantidas as funcionalidades da beta.2. Teste 02 beta.2: 12/12 aprovados.
+- Pendente: regressão final antes de autorizar publicação em produção.
+- Planejamento futuro 1.11.0: coleção de conquistas de treino e sociais, permanentes e consultáveis por amigo; compartilhamento mensal adiado.

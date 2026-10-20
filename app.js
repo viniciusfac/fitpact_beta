@@ -163,7 +163,7 @@ async function applyTemplate(t){const wk=currentWeek();if(wk<dateStr(monday(0)))
  try{await run(async()=>{await call(client.rpc('fitpact_apply_week_template',{p_week:wk,p_mode:mode,p_rows:planned}))})}catch(e){notice('Erro: '+e.message)}
 }
 function consistencyStats(personId){const todayWeek=dateStr(monday(0)),weekSet=new Set(workouts.filter(w=>w.user_id===personId&&w.scheduled_date<=shift(todayWeek,6)).map(w=>mondayOf(w.scheduled_date)));const weeks=[...weekSet].filter(w=>w<=todayWeek).sort();let current=0,record=0,runLength=0;const ended=weeks.filter(w=>w<todayWeek);for(const w of ended){const s=weeklyStats(w,personId);if(s.target===0)continue;if(s.trainingDays>=s.target){runLength++;record=Math.max(record,runLength)}else runLength=0}current=runLength;const now=weeklyStats(todayWeek,personId);if(now.target>0&&now.trainingDays>=now.target){current++;record=Math.max(record,current)}return {current,record}}
-function renderConsistency(){const root=$('consistencyStats');if(!root)return;const s=consistencyStats(viewId);root.textContent=`🔥 Sequência atual: ${s.current} semana(s) · 🏆 Recorde: ${s.record} semana(s)`}
+function renderConsistency(){const root=$('consistencyStats');if(!root)return;root.textContent='';root.classList.add('hide')}
 
 
 // 1.9.0-beta.1 — Painel de evolução: somente leitura dos dados existentes.
