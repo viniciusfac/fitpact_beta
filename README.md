@@ -1,6 +1,13 @@
-# FitPact 1.9.1-beta.1 — Ambiente beta
+# FitPact 1.9.1-beta.2 — Ambiente beta
 
 **Não publicar em produção.** Base: 1.9.0 estável. Supabase: beta.
+
+## Release notes 1.9.1-beta.2 — 20/10/2026
+
+- Sequência atual e Recorde pessoal agora aparecem como dois cartões adicionais junto dos indicadores da aba Evolução, com valores derivados de `consistencyStats(user.id)` (mesma regra de cálculo da 1.8.0).
+- Removido o painel redundante de sequência/recorde; Histórico detalhado continua recolhível.
+- Mantidos todos os demais comportamentos da beta.1, sem alteração de SQL.
+- Teste 01 da beta.1: 15 aprovados, 0 falhas, 2 não testados (histórico de interações e funcionalidades sociais). Validar na beta.2.
 
 ## Release notes 1.9.1-beta.1 — 20/10/2026
 
