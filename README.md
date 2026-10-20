@@ -1,3 +1,16 @@
+# FitPact 1.10.0-beta.1 — Evolução dos Amigos
+
+**Somente ambiente beta. Não publicar em produção.** Base: 1.9.1-beta.2.
+
+- Painel recolhível **Evolução dos amigos** dentro da aba Evolução; inicia fechado.
+- Seleção entre amizades aceitas; cartões de dias treinados, atividades concluídas, semanas com meta atingida e cumprimento da meta.
+- Respeita o filtro global de período e as políticas RLS existentes para treinos de amigos aceitos.
+- Não altera dados de outros usuários e não inclui novos comandos SQL.
+- Preserva a Evolução individual e demais funcionalidades da 1.9.1-beta.2.
+- Pendente: validação com duas contas, revogação de amizade, permissões e verificações sociais anteriores.
+
+## Histórico cumulativo
+
 # FitPact 1.9.1-beta.2 — Ambiente beta
 
 **Não publicar em produção.** Base: 1.9.0 estável. Supabase: beta.

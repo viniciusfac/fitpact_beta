@@ -8,6 +8,7 @@ let weekTemplates=[],weekTemplateItems=[];
 let interactionPageSize=10;
 let libraryOpen={active:true,inactive:false};
 let evolutionFilter='three';
+let evolutionFriendId='';
 let evolutionComparisonMonth=null;
 let evolutionCalendarMonth=null;
 const evolutionOpenPanels=new Set();
@@ -196,6 +197,38 @@ function evolutionData(start,end){
  }
  return {weeks,days,activities:done.length,hits,eligible,fulfilled,planned};
 }
+// 1.10.0-beta.1: resumo de evolução de amigos aceitos, somente leitura.
+// Dados consultados sob as políticas RLS existentes; nenhum acesso de escrita é criado.
+function renderFriendEvolution(root,start,end){
+ const panel=evolutionPanel('friends','👥 Evolução dos amigos');
+ const accepted=[...new Set(friends.filter(f=>f.status==='accepted').map(f=>f.requester_id===user.id?f.addressee_id:f.requester_id))].filter(id=>id!==user.id);
+ if(!accepted.length){panel.append(element('p','small','Nenhum amigo aceito para acompanhar.'));root.append(panel);return}
+ if(!accepted.includes(evolutionFriendId))evolutionFriendId=accepted[0];
+ const line=element('div','line');
+ const label=element('label','small','Amigo');label.htmlFor='evolutionFriendSelect';
+ const select=document.createElement('select');select.id='evolutionFriendSelect';select.setAttribute('aria-label','Selecionar amigo para acompanhar evolução');
+ for(const id of accepted){const opt=document.createElement('option');opt.value=id;opt.textContent=friendName(id);select.append(opt)}
+ select.value=evolutionFriendId;
+ select.onchange=()=>{evolutionFriendId=select.value;renderEvolution()};
+ line.append(label,select);panel.append(line);
+ const id=evolutionFriendId, today=dateStr(new Date()),last=end<today?end:today;
+ const done=workouts.filter(w=>w.user_id===id&&w.status==='done'&&w.completed_date&&w.completed_date>=start&&w.completed_date<=last);
+ const days=new Set(done.filter(w=>w.actual_counts_as_training).map(w=>w.completed_date)).size;
+ let hits=0,planned=0,fulfilled=0,weekCount=0;
+ if(start<=last)for(let wk=mondayOf(start),i=0;wk<=last&&i<60;wk=shift(wk,7),i++){
+  const from=wk<start?start:wk,to=shift(wk,6)>last?last:shift(wk,6);
+  const scheduled=new Set(workouts.filter(w=>w.user_id===id&&w.scheduled_date>=from&&w.scheduled_date<=to&&w.planned_counts_as_training&&!w.extra_workout&&w.status!=='rescheduled').map(w=>w.scheduled_date));
+  const actual=new Set(done.filter(w=>w.actual_counts_as_training&&w.completed_date>=from&&w.completed_date<=to).map(w=>w.completed_date));
+  const goal=scheduled.size,real=actual.size;
+  if(goal){weekCount++;planned+=goal;fulfilled+=Math.min(goal,real);if(from===wk&&to===shift(wk,6)&&real>=goal)hits++}
+ }
+ const stats=element('div','evolution-stats');
+ for(const [value,title] of [[days,'Dias treinados'],[done.length,'Atividades concluídas'],[hits,'Semanas com meta atingida'],[planned?Math.round(100*fulfilled/planned)+'%':'—','Cumprimento da meta']]){
+  const card=element('div','evolution-stat');card.append(element('strong','',String(value)),element('span','small',title));stats.append(card)
+ }
+ panel.append(stats,element('p','small',`Período: ${fmtDate(start)} a ${fmtDate(end)}. Semanas sem meta são neutras. Dados disponibilizados pelas permissões de amizade existentes.`));
+ root.append(panel);
+}
 function renderEvolution(){
  const root=$('evolutionContent');if(!root||!user)return;
  // Preservar os painéis abertos durante atualizações dos treinos e filtros.
@@ -212,6 +245,7 @@ function renderEvolution(){
   const card=element('div','evolution-stat');card.append(element('strong','',String(value)),element('span','small',label));stats.append(card)
  }
  root.append(stats);
+ renderFriendEvolution(root,start,end);
  const note=element('p','small',`Período: ${fmtDate(start)} a ${fmtDate(end)} · Apenas resultados até hoje. Metas semanais parciais consideram os dias dentro do filtro.`);root.append(note);
  const details=evolutionPanel('weekly','📊 Dias treinados × meta semanal');
 
