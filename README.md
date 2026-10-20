@@ -1,4 +1,4 @@
-# FitPact 1.10.0-beta.1 — Evolução dos Amigos
+# FitPact 1.10.0-beta.2 — Evolução dos Amigos
 
 **Somente ambiente beta. Não publicar em produção.** Base: 1.9.1-beta.2.
 
@@ -372,3 +372,11 @@ Os scripts de banco permanecem exclusivamente em `sql/`. A versão 1.7.6 de prod
 - Sequência atual e recorde pessoal com semanas sem meta neutras e semanas futuras fora do cálculo até a data cronológica.
 - 47 verificações aprovadas, zero falhas, seis verificações do módulo Amigos não executadas; **homologação com ressalva**.
 - Migração SQL 1.8.0 confirmada como aplicada em produção antes da distribuição.
+
+
+### 1.10.0-beta.2
+- Seletor único Eu/amigos para indicadores, gráficos e histórico.
+- Sequência e recorde de cada pessoa selecionada.
+- Histórico sem título e filtros duplicados.
+- Feed de atividades concluídas dos amigos ampliado para 30 dias, até 10 itens, com reações.
+- Testes sociais e privacidade ainda exigem validação no beta.

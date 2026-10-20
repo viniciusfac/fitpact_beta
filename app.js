@@ -8,7 +8,7 @@ let weekTemplates=[],weekTemplateItems=[];
 let interactionPageSize=10;
 let libraryOpen={active:true,inactive:false};
 let evolutionFilter='three';
-let evolutionFriendId='';
+let evolutionViewerId='';
 let evolutionComparisonMonth=null;
 let evolutionCalendarMonth=null;
 const evolutionOpenPanels=new Set();
@@ -84,7 +84,7 @@ function renderRequests(){
 }
 function weeklyStats(week,personId=viewId){const rows=workouts.filter(w=>w.user_id===personId&&w.status==='done'&&w.completed_date>=week&&w.completed_date<shift(week,7));const trainingDays=new Set(rows.filter(w=>w.actual_counts_as_training).map(w=>w.completed_date)).size;const target=new Set(workouts.filter(w=>w.user_id===personId&&w.scheduled_date>=week&&w.scheduled_date<shift(week,7)&&w.planned_counts_as_training&&!w.extra_workout&&w.status!=='rescheduled').map(w=>w.scheduled_date)).size;return {trainingDays,activities:rows.length,target,rows}}
 function indicator(s){return s.target>0&&s.trainingDays>=s.target?'🟢':s.trainingDays>0?'🟡':'🔴'}
-function render(){selectOptions();renderRequests();const week=currentWeek(),s=weeklyStats(week,user.id);$('weekLabel').textContent=`${fmtDate(week)} a ${fmtDate(shift(week,6))}`;$('repeat').disabled=!owned()||week<dateStr(monday(0));$('resetWeek').disabled=!owned()||week<dateStr(monday(0));$('daysCount').textContent=s.trainingDays;$('activitiesCount').textContent=s.activities;$('goalCount').textContent=s.target;$('result').textContent=indicator(s);renderDays(week);renderTemplates();renderLibrary();renderHistory();renderConsistency();renderSocial();renderEvolution()}
+function render(){selectOptions();renderRequests();const week=currentWeek(),s=weeklyStats(week,user.id);$('weekLabel').textContent=`${fmtDate(week)} a ${fmtDate(shift(week,6))}`;$('repeat').disabled=!owned()||week<dateStr(monday(0));$('resetWeek').disabled=!owned()||week<dateStr(monday(0));$('daysCount').textContent=s.trainingDays;$('activitiesCount').textContent=s.activities;$('goalCount').textContent=s.target;$('result').textContent=indicator(s);renderDays(week);renderTemplates();renderLibrary();renderHistory();renderConsistency();renderSocial();renderEvolution();renderHistory()}
 function renderDays(week){const root=$('days');root.replaceChildren();for(let i=0;i<7;i++){const day=shift(week,i),block=document.createElement('div');block.className='day';const title=document.createElement('div');title.className='line';title.innerHTML=`<b>${D[i]} ${fmtDate(day)}</b>`;const rows=workouts.filter(w=>w.user_id===user.id&&w.scheduled_date===day);const rest=rows.some(isRecovery);if(owned()){if(!rest){const add=document.createElement('button');add.className='secondary';add.textContent='+ Exercício';add.onclick=()=>addWorkout(day);title.append(add)}if(!rows.length){const restBtn=document.createElement('button');restBtn.className='secondary';restBtn.textContent='🧘 Recuperação';restBtn.onclick=()=>addRecovery(day);title.append(restBtn)}}block.append(title);for(const w of rows){const line=document.createElement('div');line.className='entry';const desc=document.createElement('span');desc.className='grow';desc.textContent=`${effectiveEmoji(w)} ${effectiveActivity(w)}${w.with_pt?' · 👤 PT':''}`+(w.start_time?` · ${String(w.start_time).slice(0,5)}${w.end_time?'–'+String(w.end_time).slice(0,5):''}`:'')+` ${isRecovery(w)?'':({planned:'⏳',done:'✅',missed:'❌',rescheduled:'➡️'}[w.status])}`+(w.notes?` · 📝 ${w.notes}`:'');line.append(desc);if(w.status==='done'&&w.actual_name&&w.actual_name!==w.planned_name){const changed=document.createElement('button');changed.className='secondary';changed.textContent='🕘';changed.title='Ver atividade originalmente planejada';changed.setAttribute('aria-label','Ver atividade originalmente planejada');changed.onclick=()=>notice('Planejado originalmente: '+w.planned_emoji+' '+w.planned_name);line.append(changed)}if(owned()&&isRecovery(w)){const note=document.createElement('button');note.className='secondary';note.textContent='📝';note.title='Editar observação';note.setAttribute('aria-label',note.title);note.classList.add('icon-action');note.onclick=()=>editRecoveryNote(w);line.append(note);const remove=document.createElement('button');remove.className='secondary';remove.textContent='🗑';remove.title='Remover recuperação';remove.setAttribute('aria-label',remove.title);remove.classList.add('icon-action');remove.onclick=()=>removeWorkout(w);line.append(remove);const swap=document.createElement('button');swap.className='secondary';swap.textContent='🔄';swap.title='Substituir recuperação por treino extra';swap.setAttribute('aria-label',swap.title);swap.classList.add('icon-action');swap.onclick=()=>convertRecovery(w);line.append(swap)}else if(owned()){const actions=w.status==='rescheduled'?[['🗑',()=>removeWorkout(w)]]:[['✅',()=>complete(w)],['🔄',()=>complete(w,true)],['❌',()=>updateWorkout(w,{status:w.status==='missed'?'planned':'missed',completed_date:null,actual_activity_id:null,actual_name:null,actual_emoji:null,actual_counts_as_training:null})],['↪',()=>reschedule(w)],['✎',()=>editWorkout(w)],['🗑',()=>removeWorkout(w)]];for(const [label,action] of actions){const b=document.createElement('button');b.className='secondary';b.textContent=label;b.title=({'✅':'Concluir ou desfazer treino','🔄':'Substituir treino','❌':'Marcar como não cumprido','↪':'Reprogramar treino','✎':'Editar treino','🗑':'Excluir treino'}[label]||label);b.setAttribute('aria-label',b.title);b.classList.add('icon-action');b.onclick=action;line.append(b)}}block.append(line)}root.append(block)}}
 async function editRecoveryNote(w){const value=prompt('Observação do dia de recuperação (até 500 caracteres):',w.notes||'');if(value===null)return;if(value.length>500)return notice('A observação deve ter até 500 caracteres.');await updateWorkout(w,{notes:value.trim()||null})}
 async function convertRecovery(w){
@@ -181,7 +181,7 @@ function evolutionRange(){
 function evolutionData(start,end){
  const today=dateStr(new Date()),last=end<today?end:today;
  if(start>last)return {weeks:[],days:0,activities:0,hits:0,eligible:0,fulfilled:0,planned:0};
- const mine=workouts.filter(w=>w.user_id===user.id);
+ const mine=workouts.filter(w=>w.user_id===evolutionViewerId);
  const done=mine.filter(w=>w.status==='done'&&w.completed_date&&w.completed_date>=start&&w.completed_date<=last);
  const days=new Set(done.filter(w=>w.actual_counts_as_training).map(w=>w.completed_date)).size;
  const weeks=[];let hits=0,eligible=0,fulfilled=0,planned=0;
@@ -197,37 +197,14 @@ function evolutionData(start,end){
  }
  return {weeks,days,activities:done.length,hits,eligible,fulfilled,planned};
 }
-// 1.10.0-beta.1: resumo de evolução de amigos aceitos, somente leitura.
-// Dados consultados sob as políticas RLS existentes; nenhum acesso de escrita é criado.
-function renderFriendEvolution(root,start,end){
- const panel=evolutionPanel('friends','👥 Evolução dos amigos');
- const accepted=[...new Set(friends.filter(f=>f.status==='accepted').map(f=>f.requester_id===user.id?f.addressee_id:f.requester_id))].filter(id=>id!==user.id);
- if(!accepted.length){panel.append(element('p','small','Nenhum amigo aceito para acompanhar.'));root.append(panel);return}
- if(!accepted.includes(evolutionFriendId))evolutionFriendId=accepted[0];
- const line=element('div','line');
- const label=element('label','small','Amigo');label.htmlFor='evolutionFriendSelect';
- const select=document.createElement('select');select.id='evolutionFriendSelect';select.setAttribute('aria-label','Selecionar amigo para acompanhar evolução');
- for(const id of accepted){const opt=document.createElement('option');opt.value=id;opt.textContent=friendName(id);select.append(opt)}
- select.value=evolutionFriendId;
- select.onchange=()=>{evolutionFriendId=select.value;renderEvolution()};
- line.append(label,select);panel.append(line);
- const id=evolutionFriendId, today=dateStr(new Date()),last=end<today?end:today;
- const done=workouts.filter(w=>w.user_id===id&&w.status==='done'&&w.completed_date&&w.completed_date>=start&&w.completed_date<=last);
- const days=new Set(done.filter(w=>w.actual_counts_as_training).map(w=>w.completed_date)).size;
- let hits=0,planned=0,fulfilled=0,weekCount=0;
- if(start<=last)for(let wk=mondayOf(start),i=0;wk<=last&&i<60;wk=shift(wk,7),i++){
-  const from=wk<start?start:wk,to=shift(wk,6)>last?last:shift(wk,6);
-  const scheduled=new Set(workouts.filter(w=>w.user_id===id&&w.scheduled_date>=from&&w.scheduled_date<=to&&w.planned_counts_as_training&&!w.extra_workout&&w.status!=='rescheduled').map(w=>w.scheduled_date));
-  const actual=new Set(done.filter(w=>w.actual_counts_as_training&&w.completed_date>=from&&w.completed_date<=to).map(w=>w.completed_date));
-  const goal=scheduled.size,real=actual.size;
-  if(goal){weekCount++;planned+=goal;fulfilled+=Math.min(goal,real);if(from===wk&&to===shift(wk,6)&&real>=goal)hits++}
- }
- const stats=element('div','evolution-stats');
- for(const [value,title] of [[days,'Dias treinados'],[done.length,'Atividades concluídas'],[hits,'Semanas com meta atingida'],[planned?Math.round(100*fulfilled/planned)+'%':'—','Cumprimento da meta']]){
-  const card=element('div','evolution-stat');card.append(element('strong','',String(value)),element('span','small',title));stats.append(card)
- }
- panel.append(stats,element('p','small',`Período: ${fmtDate(start)} a ${fmtDate(end)}. Semanas sem meta são neutras. Dados disponibilizados pelas permissões de amizade existentes.`));
- root.append(panel);
+// Um único seletor controla indicadores, gráficos e histórico; padrão: Eu.
+function renderEvolutionViewer(){
+ const ids=[user.id,...friendIds().filter(id=>id!==user.id)];
+ if(!ids.includes(evolutionViewerId))evolutionViewerId=user.id;
+ const select=$('evolutionViewer');if(!select)return;
+ select.replaceChildren();for(const id of ids){const o=element('option','',id===user.id?'Eu':friendName(id));o.value=id;select.append(o)}
+ select.value=evolutionViewerId;
+ viewId=evolutionViewerId;
 }
 function renderEvolution(){
  const root=$('evolutionContent');if(!root||!user)return;
@@ -236,16 +213,17 @@ function renderEvolution(){
   if(panel.open)evolutionOpenPanels.add(panel.dataset.evolutionPanel);
   else evolutionOpenPanels.delete(panel.dataset.evolutionPanel);
  }
+ renderEvolutionViewer();
  const [start,end]=evolutionRange();root.replaceChildren();
  if(start>end){root.append(element('p','small','A data inicial não pode ser posterior à data final.'));return}
  const data=evolutionData(start,end),pct=data.planned?Math.round(100*data.fulfilled/data.planned):null;
  const stats=element('div','evolution-stats');
- const streakStats=consistencyStats(user.id);
+ const streakStats=consistencyStats(evolutionViewerId);
  for(const [value,label] of [[data.days,'Dias treinados'],[data.activities,'Atividades concluídas'],[data.hits,'Semanas com meta atingida'],[pct===null?'—':pct+'%','Cumprimento da meta'],[streakStats.current,'🔥 Sequência atual (semanas)'],[streakStats.record,'🏆 Recorde pessoal (semanas)']]){
   const card=element('div','evolution-stat');card.append(element('strong','',String(value)),element('span','small',label));stats.append(card)
  }
  root.append(stats);
- renderFriendEvolution(root,start,end);
+
  const note=element('p','small',`Período: ${fmtDate(start)} a ${fmtDate(end)} · Apenas resultados até hoje. Metas semanais parciais consideram os dias dentro do filtro.`);root.append(note);
  const details=evolutionPanel('weekly','📊 Dias treinados × meta semanal');
 
@@ -309,7 +287,7 @@ function renderEvolutionCalendar(root,start,end){
  const first=new Date(month+'T12:00:00'),offset=(first.getDay()+6)%7;
  for(let i=0;i<offset;i++)grid.append(element('span','evolution-calendar-blank',''));
  const daysInMonth=new Date(first.getFullYear(),first.getMonth()+1,0).getDate();
- const mine=workouts.filter(w=>w.user_id===user.id&&w.status==='done'&&w.actual_counts_as_training&&w.completed_date);
+ const mine=workouts.filter(w=>w.user_id===evolutionViewerId&&w.status==='done'&&w.actual_counts_as_training&&w.completed_date);
  const details=element('div','evolution-day-details small','Toque num dia para consultar os treinos.');
  for(let day=1;day<=daysInMonth;day++){
   const date=month.slice(0,7)+'-'+String(day).padStart(2,'0');
@@ -334,7 +312,7 @@ function renderEvolutionCalendar(root,start,end){
 function renderEvolutionDistribution(root,start,end){
  const panel=evolutionPanel('distribution','🥧 Distribuição por atividade');
  const today=dateStr(new Date()),limit=end<today?end:today;
- const done=workouts.filter(w=>w.user_id===user.id&&w.status==='done'&&w.completed_date&&w.completed_date>=start&&w.completed_date<=limit&&w.actual_counts_as_training);
+ const done=workouts.filter(w=>w.user_id===evolutionViewerId&&w.status==='done'&&w.completed_date&&w.completed_date>=start&&w.completed_date<=limit&&w.actual_counts_as_training);
  const counts=new Map();
  for(const w of done){
   // O nome realizado tem prioridade sobre o planejado, preservando o histórico.
@@ -366,7 +344,7 @@ function evolutionMonthBounds(month,days){
  return [first,month.slice(0,7)+'-'+String(Math.min(days,lastDay)).padStart(2,'0')];
 }
 function evolutionMonthlyStats(from,to){
- const mine=workouts.filter(w=>w.user_id===user.id);
+ const mine=workouts.filter(w=>w.user_id===evolutionViewerId);
  const completed=mine.filter(w=>w.status==='done'&&w.completed_date&&w.completed_date>=from&&w.completed_date<=to);
  const trained=completed.filter(w=>w.actual_counts_as_training);
  const days=new Set(trained.map(w=>w.completed_date)).size;
@@ -426,7 +404,7 @@ function renderEvolutionMonthly(root,start,end){
  root.append(panel);
 }
 
-function renderHistory(){const root=$('history');root.replaceChildren();$('historyDetails').textContent='';const [start,end]=historyRange();if(start>end){root.textContent='A data inicial não pode ser posterior à data final.';return}const relevant=workouts.filter(w=>w.user_id===viewId&&((w.status==='done'&&w.completed_date?w.completed_date:w.scheduled_date)>=start&&(w.status==='done'&&w.completed_date?w.completed_date:w.scheduled_date)<=end));const weeks=[...new Set(relevant.map(w=>mondayOf(w.status==='done'&&w.completed_date?w.completed_date:w.scheduled_date)))].sort().reverse();let hits=0,totalDays=0,totalActs=0;for(const wk of weeks){const all=weeklyStats(wk,viewId);const inRange=relevant.filter(w=>w.status==='done'&&w.completed_date>=wk&&w.completed_date<shift(wk,7));const days=new Set(inRange.filter(w=>w.actual_counts_as_training).map(w=>w.completed_date)).size;totalDays+=days;totalActs+=inRange.length;if(all.target>0&&all.trainingDays>=all.target)hits++;const b=document.createElement('button');b.className='secondary';b.textContent=`${indicator(all)} ${fmtDate(wk)} a ${fmtDate(shift(wk,6))} · ${days}/${all.target} dias · ${inRange.length} atividades`;b.onclick=()=>{$('historyDetails').textContent=`Semana ${fmtDate(wk)} a ${fmtDate(shift(wk,6))}\nMeta de dias: ${all.target} | Atividades concluídas: ${inRange.length} | Dias concluídos: ${days}\n\n`+relevant.filter(w=>{const d=w.status==='done'&&w.completed_date?w.completed_date:w.scheduled_date;return d>=wk&&d<shift(wk,7)}).sort((a,b)=>a.scheduled_date.localeCompare(b.scheduled_date)).map(w=>`${fmtDate(w.scheduled_date)}: ${effectiveEmoji(w)} ${effectiveActivity(w)} ${w.status==='done'?'✅':w.status==='missed'?'❌':w.status==='rescheduled'?'➡️':'⏳'}${w.status==='done'&&w.actual_name!==w.planned_name?' (substituiu '+w.planned_name+')':''}${w.completed_date?' (concluído em '+fmtDate(w.completed_date)+')':''}`).join('\n')};root.append(b)}$('historyStats').textContent=`${weeks.length} semanas registradas · ${hits} metas atingidas · ${totalActs} atividades concluídas · ${totalDays} dias concluídos`;if(!weeks.length)root.textContent='Nenhuma atividade encontrada neste período.'}
+function renderHistory(){const root=$('history');root.replaceChildren();$('historyDetails').textContent='';const [start,end]=evolutionRange();if(start>end){root.textContent='A data inicial não pode ser posterior à data final.';return}const relevant=workouts.filter(w=>w.user_id===viewId&&((w.status==='done'&&w.completed_date?w.completed_date:w.scheduled_date)>=start&&(w.status==='done'&&w.completed_date?w.completed_date:w.scheduled_date)<=end));const weeks=[...new Set(relevant.map(w=>mondayOf(w.status==='done'&&w.completed_date?w.completed_date:w.scheduled_date)))].sort().reverse();let hits=0,totalDays=0,totalActs=0;for(const wk of weeks){const all=weeklyStats(wk,viewId);const inRange=relevant.filter(w=>w.status==='done'&&w.completed_date>=wk&&w.completed_date<shift(wk,7));const days=new Set(inRange.filter(w=>w.actual_counts_as_training).map(w=>w.completed_date)).size;totalDays+=days;totalActs+=inRange.length;if(all.target>0&&all.trainingDays>=all.target)hits++;const b=document.createElement('button');b.className='secondary';b.textContent=`${indicator(all)} ${fmtDate(wk)} a ${fmtDate(shift(wk,6))} · ${days}/${all.target} dias · ${inRange.length} atividades`;b.onclick=()=>{$('historyDetails').textContent=`Semana ${fmtDate(wk)} a ${fmtDate(shift(wk,6))}\nMeta de dias: ${all.target} | Atividades concluídas: ${inRange.length} | Dias concluídos: ${days}\n\n`+relevant.filter(w=>{const d=w.status==='done'&&w.completed_date?w.completed_date:w.scheduled_date;return d>=wk&&d<shift(wk,7)}).sort((a,b)=>a.scheduled_date.localeCompare(b.scheduled_date)).map(w=>`${fmtDate(w.scheduled_date)}: ${effectiveEmoji(w)} ${effectiveActivity(w)} ${w.status==='done'?'✅':w.status==='missed'?'❌':w.status==='rescheduled'?'➡️':'⏳'}${w.status==='done'&&w.actual_name!==w.planned_name?' (substituiu '+w.planned_name+')':''}${w.completed_date?' (concluído em '+fmtDate(w.completed_date)+')':''}`).join('\n')};root.append(b)}$('historyStats').textContent=`${weeks.length} semanas registradas · ${hits} metas atingidas · ${totalActs} atividades concluídas · ${totalDays} dias concluídos`;if(!weeks.length)root.textContent='Nenhuma atividade encontrada neste período.'}
 function summary(){
   const wk=currentWeek(),s=weeklyStats(wk,user.id);
   const rows=workouts.filter(w=>w.user_id===user.id&&w.scheduled_date>=wk&&w.scheduled_date<shift(wk,7));
@@ -477,10 +455,11 @@ function renderSocial(){
  for(const id of visible){
   const card=element('div','social-person'),stats=socialWeekStats(id),title=element('div','line');
   title.append(element('strong','',friendName(id)),element('span','small',`Meta: ${stats.target} · Dias concluídos: ${stats.trainingDays}`));card.append(title);
-  const achievements=workouts.filter(w=>w.user_id===id&&w.status==='done'&&w.completed_date>=shift(today,-6)&&w.completed_date<=today).sort((a,b)=>String(b.completed_date).localeCompare(String(a.completed_date))).slice(0,5);
+  const achievements=workouts.filter(w=>w.user_id===id&&w.status==='done'&&w.completed_date>=shift(today,-29)&&w.completed_date<=today).sort((a,b)=>String(b.completed_date).localeCompare(String(a.completed_date))).slice(0,10);
   if(stats.target>0&&stats.trainingDays>=stats.target){const line=element('div','line');line.append(element('span','grow','🏆 Meta semanal alcançada!'));appendReactions(line,id,'week',wk);card.append(line)}
   for(const w of achievements){const line=element('div','line');line.append(element('span','grow',`${fmtDate(w.completed_date)} · ${effectiveEmoji(w)} ${effectiveActivity(w)} ✅`));appendReactions(line,id,'workout',w.id);card.append(line)}
-  if(!achievements.length&&!(stats.target>0&&stats.trainingDays>=stats.target))card.append(element('p','small','Sem treinos concluídos nos últimos 7 dias.'));
+  if(!achievements.length&&!(stats.target>0&&stats.trainingDays>=stats.target))card.append(element('p','small','Sem treinos concluídos nos últimos 30 dias.'));
+  if(achievements.length)card.append(element('p','small','Reaja às atividades concluídas dos últimos 30 dias.')); 
   const nudgeLine=element('div','line'),nudge=element('select','grow');for(const [val,txt] of [['encourage','💪 Bora treinar!'],['checkin','🤝 Está tudo bem?'],['playful','👀 Sumiu da academia?'],['together','🏃 Vamos treinar juntos?']]){const o=element('option','',txt);o.value=val;nudge.append(o)}
   nudgeLine.append(nudge,socialButton('Enviar incentivo',()=>sendNudge(id,nudge.value)));card.append(nudgeLine);root.append(card)
  }
@@ -557,7 +536,7 @@ $('saveNewPassword').onclick=async()=>{
 };
 $('cancelRecovery').onclick=()=>{recoveryMode=false;history.replaceState(null,'',location.pathname);$('passwordRecovery').classList.add('hide');$('auth').classList.remove('hide')};
 const historicalCard=$('tab-history').querySelector('section');if(historicalCard){$('evolutionHistoryBody').append(historicalCard);historicalCard.classList.remove('card')}
-$('logout').onclick=()=>client.auth.signOut();document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{const tab=b.dataset.tab;for(const id of ['plan','history','activities','friends','settings','evolution'])$('tab-'+id).classList.toggle('hide',id!==tab);$('tab-share').classList.toggle('hide',tab!=='plan');document.querySelectorAll('[data-tab]').forEach(x=>{x.classList.toggle('active',x.dataset.tab===tab);x.classList.toggle('secondary',x.dataset.tab!==tab)})});$('socialFriendFilter').onchange=()=>{friendFilter=$('socialFriendFilter').value;interactionPageSize=10;renderSocial()};$('interactionFilter').onchange=()=>{interactionFilter=$('interactionFilter').value;interactionPageSize=10;renderSocial()};$('evolutionFilter').onchange=()=>{evolutionComparisonMonth=null;evolutionFilter=$('evolutionFilter').value;for(const id of ['evolutionStart','evolutionEnd'])$(id).classList.toggle('hide',evolutionFilter!=='custom');renderEvolution()};for(const id of ['evolutionStart','evolutionEnd'])$(id).onchange=()=>{evolutionComparisonMonth=null;renderEvolution()};$('historyFilter').onchange=()=>{historyFilter=$('historyFilter').value;for(const id of ['historyStart','historyEnd'])$(id).classList.toggle('hide',historyFilter!=='custom');renderHistory()};for(const id of ['historyStart','historyEnd'])$(id).onchange=renderHistory;$('prev').onclick=()=>{offset--;render()};$('next').onclick=()=>{offset++;render()};$('historyViewer').onchange=()=>{viewId=$('historyViewer').value;render()};
+$('logout').onclick=()=>client.auth.signOut();document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{const tab=b.dataset.tab;for(const id of ['plan','history','activities','friends','settings','evolution'])$('tab-'+id).classList.toggle('hide',id!==tab);$('tab-share').classList.toggle('hide',tab!=='plan');document.querySelectorAll('[data-tab]').forEach(x=>{x.classList.toggle('active',x.dataset.tab===tab);x.classList.toggle('secondary',x.dataset.tab!==tab)})});$('socialFriendFilter').onchange=()=>{friendFilter=$('socialFriendFilter').value;interactionPageSize=10;renderSocial()};$('interactionFilter').onchange=()=>{interactionFilter=$('interactionFilter').value;interactionPageSize=10;renderSocial()};$('evolutionViewer').onchange=()=>{evolutionViewerId=$('evolutionViewer').value;renderEvolution();renderHistory()};$('evolutionFilter').onchange=()=>{evolutionComparisonMonth=null;evolutionFilter=$('evolutionFilter').value;for(const id of ['evolutionStart','evolutionEnd'])$(id).classList.toggle('hide',evolutionFilter!=='custom');renderEvolution();renderHistory()};for(const id of ['evolutionStart','evolutionEnd'])$(id).onchange=()=>{evolutionComparisonMonth=null;renderEvolution()};$('historyFilter').onchange=()=>{historyFilter=$('historyFilter').value;for(const id of ['historyStart','historyEnd'])$(id).classList.toggle('hide',historyFilter!=='custom');renderHistory()};for(const id of ['historyStart','historyEnd'])$(id).onchange=renderHistory;$('prev').onclick=()=>{offset--;render()};$('next').onclick=()=>{offset++;render()};$('historyViewer').onchange=()=>{viewId=$('historyViewer').value;render()};
 
 $('saveWeekTemplate').onclick=saveTemplateFromWeek;
 $('resetWeek').onclick=async()=>{const wk=currentWeek();if(!owned()||wk<dateStr(monday(0)))return notice('Semanas anteriores não podem ser reiniciadas.');const rows=workouts.filter(w=>w.user_id===user.id&&w.scheduled_date>=wk&&w.scheduled_date<shift(wk,7));if(!rows.length)return notice('Esta semana não tem registros para reiniciar.');if(!confirm('Reiniciar a semana de '+fmtDate(wk)+'? Isso excluirá permanentemente '+rows.length+' registro(s) desta semana, incluindo resultados. Esta ação não pode ser desfeita.'))return;await run(()=>call(client.from('workouts').delete().eq('user_id',user.id).gte('scheduled_date',wk).lt('scheduled_date',shift(wk,7))))};
