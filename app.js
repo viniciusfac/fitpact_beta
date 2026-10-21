@@ -12,6 +12,7 @@ let evolutionViewerId='';
 let evolutionComparisonMonth=null;
 let evolutionCalendarMonth=null;
 const evolutionOpenPanels=new Set();
+let achievements=[],achievementViewerId='',achievementReady=false,achievementSaving=false;
 let noticeTimer;const notice=t=>{const el=$('notice');el.textContent=t;el.hidden=false;clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>{el.hidden=true},5000)};
 const monday=o=>{let d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDate()-(d.getDay()+6)%7+o*7);return d};
 const dateStr=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -58,7 +59,7 @@ async function init(){
 
 }
 async function signed(u){if(recoveryMode)return;user=u;viewId=u.id;$('auth').classList.add('hide');$('app').classList.remove('hide');$('who').textContent=u.email;$('myid').textContent=u.id;await run(async()=>{const existing=await call(client.from('profiles').select('id').eq('id',u.id).maybeSingle());if(!existing)await call(client.from('profiles').insert({id:u.id,display_name:u.user_metadata?.display_name||u.email.split('@')[0]}));const own=await call(client.from('activities').select('id').eq('user_id',u.id).limit(1));if(!own.length)await call(client.from('activities').insert(DEFAULT.map(([emoji,name,counts_as_training])=>({user_id:u.id,emoji,name,counts_as_training}))))})}
-async function refresh(){if(!user||loading)return;loading=true;try{const [f,p,a,g,w]=await Promise.all([call(client.from('friendships').select('*').or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)),call(client.from('profiles').select('*')),call(client.from('activities').select('*').order('created_at')),call(client.from('weekly_goals').select('*')),call(client.from('workouts').select('*').order('scheduled_date').order('created_at'))]);friends=f;profiles=p;activities=a;goals=g;workouts=w;try{[weekTemplates,weekTemplateItems]=await Promise.all([call(client.from('week_templates').select('*').order('created_at',{ascending:false})),call(client.from('week_template_items').select('*').order('day_index'))])}catch(e){weekTemplates=[];weekTemplateItems=[];notice('Migração beta 1.8.0 necessária: '+e.message)}await loadSocial();try{[friendMutes,friendEvents]=await Promise.all([call(client.from('friend_incentive_prefs').select('*')),call(client.from('friendship_events').select('*').order('created_at',{ascending:false}).limit(100))])}catch(e){friendMutes=[];friendEvents=[];notice('Migração 1.7.1 necessária: '+e.message)}render()}catch(e){notice('Falha ao carregar: '+e.message)}finally{loading=false}}
+async function refresh(){if(!user||loading)return;loading=true;try{const [f,p,a,g,w]=await Promise.all([call(client.from('friendships').select('*').or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)),call(client.from('profiles').select('*')),call(client.from('activities').select('*').order('created_at')),call(client.from('weekly_goals').select('*')),call(client.from('workouts').select('*').order('scheduled_date').order('created_at'))]);friends=f;profiles=p;activities=a;goals=g;workouts=w;try{[weekTemplates,weekTemplateItems]=await Promise.all([call(client.from('week_templates').select('*').order('created_at',{ascending:false})),call(client.from('week_template_items').select('*').order('day_index'))])}catch(e){weekTemplates=[];weekTemplateItems=[];notice('Migração beta 1.8.0 necessária: '+e.message)}await loadSocial();await loadAchievements();try{[friendMutes,friendEvents]=await Promise.all([call(client.from('friend_incentive_prefs').select('*')),call(client.from('friendship_events').select('*').order('created_at',{ascending:false}).limit(100))])}catch(e){friendMutes=[];friendEvents=[];notice('Migração 1.7.1 necessária: '+e.message)}render()}catch(e){notice('Falha ao carregar: '+e.message)}finally{loading=false}}
 function selectOptions(){const sel=$('historyViewer'),old=viewId;sel.replaceChildren();const ids=[user.id,...friends.filter(f=>f.status==='accepted').map(f=>f.requester_id===user.id?f.addressee_id:f.requester_id)];for(const id of ids){const p=profiles.find(p=>p.id===id),o=document.createElement('option');o.value=id;o.textContent=id===user.id?'Eu':(p?.display_name||p?.email||'Amigo');sel.append(o)}if(!ids.includes(old))viewId=user.id;sel.value=viewId;if(document.activeElement!==$('displayName'))$('displayName').value=profiles.find(p=>p.id===user.id)?.display_name||''}
 function renderRequests(){
  const root=$('requests');root.replaceChildren();
@@ -84,7 +85,7 @@ function renderRequests(){
 }
 function weeklyStats(week,personId=viewId){const rows=workouts.filter(w=>w.user_id===personId&&w.status==='done'&&w.completed_date>=week&&w.completed_date<shift(week,7));const trainingDays=new Set(rows.filter(w=>w.actual_counts_as_training).map(w=>w.completed_date)).size;const target=new Set(workouts.filter(w=>w.user_id===personId&&w.scheduled_date>=week&&w.scheduled_date<shift(week,7)&&w.planned_counts_as_training&&!w.extra_workout&&w.status!=='rescheduled').map(w=>w.scheduled_date)).size;return {trainingDays,activities:rows.length,target,rows}}
 function indicator(s){return s.target>0&&s.trainingDays>=s.target?'🟢':s.trainingDays>0?'🟡':'🔴'}
-function render(){selectOptions();renderRequests();const week=currentWeek(),s=weeklyStats(week,user.id);$('weekLabel').textContent=`${fmtDate(week)} a ${fmtDate(shift(week,6))}`;$('repeat').disabled=!owned()||week<dateStr(monday(0));$('resetWeek').disabled=!owned()||week<dateStr(monday(0));$('daysCount').textContent=s.trainingDays;$('activitiesCount').textContent=s.activities;$('goalCount').textContent=s.target;$('result').textContent=indicator(s);renderDays(week);renderTemplates();renderLibrary();renderHistory();renderConsistency();renderSocial();renderEvolution();renderHistory()}
+function render(){selectOptions();renderRequests();const week=currentWeek(),s=weeklyStats(week,user.id);$('weekLabel').textContent=`${fmtDate(week)} a ${fmtDate(shift(week,6))}`;$('repeat').disabled=!owned()||week<dateStr(monday(0));$('resetWeek').disabled=!owned()||week<dateStr(monday(0));$('daysCount').textContent=s.trainingDays;$('activitiesCount').textContent=s.activities;$('goalCount').textContent=s.target;$('result').textContent=indicator(s);renderDays(week);renderTemplates();renderLibrary();renderHistory();renderConsistency();renderSocial();renderEvolution();renderHistory();renderAchievements();void unlockAchievements()}
 function renderDays(week){const root=$('days');root.replaceChildren();for(let i=0;i<7;i++){const day=shift(week,i),block=document.createElement('div');block.className='day';const title=document.createElement('div');title.className='line';title.innerHTML=`<b>${D[i]} ${fmtDate(day)}</b>`;const rows=workouts.filter(w=>w.user_id===user.id&&w.scheduled_date===day);const rest=rows.some(isRecovery);if(owned()){if(!rest){const add=document.createElement('button');add.className='secondary';add.textContent='+ Exercício';add.onclick=()=>addWorkout(day);title.append(add)}if(!rows.length){const restBtn=document.createElement('button');restBtn.className='secondary';restBtn.textContent='🧘 Recuperação';restBtn.onclick=()=>addRecovery(day);title.append(restBtn)}}block.append(title);for(const w of rows){const line=document.createElement('div');line.className='entry';const desc=document.createElement('span');desc.className='grow';desc.textContent=`${effectiveEmoji(w)} ${effectiveActivity(w)}${w.with_pt?' · 👤 PT':''}`+(w.start_time?` · ${String(w.start_time).slice(0,5)}${w.end_time?'–'+String(w.end_time).slice(0,5):''}`:'')+` ${isRecovery(w)?'':({planned:'⏳',done:'✅',missed:'❌',rescheduled:'➡️'}[w.status])}`+(w.notes?` · 📝 ${w.notes}`:'');line.append(desc);if(w.status==='done'&&w.actual_name&&w.actual_name!==w.planned_name){const changed=document.createElement('button');changed.className='secondary';changed.textContent='🕘';changed.title='Ver atividade originalmente planejada';changed.setAttribute('aria-label','Ver atividade originalmente planejada');changed.onclick=()=>notice('Planejado originalmente: '+w.planned_emoji+' '+w.planned_name);line.append(changed)}if(owned()&&isRecovery(w)){const note=document.createElement('button');note.className='secondary';note.textContent='📝';note.title='Editar observação';note.setAttribute('aria-label',note.title);note.classList.add('icon-action');note.onclick=()=>editRecoveryNote(w);line.append(note);const remove=document.createElement('button');remove.className='secondary';remove.textContent='🗑';remove.title='Remover recuperação';remove.setAttribute('aria-label',remove.title);remove.classList.add('icon-action');remove.onclick=()=>removeWorkout(w);line.append(remove);const swap=document.createElement('button');swap.className='secondary';swap.textContent='🔄';swap.title='Substituir recuperação por treino extra';swap.setAttribute('aria-label',swap.title);swap.classList.add('icon-action');swap.onclick=()=>convertRecovery(w);line.append(swap)}else if(owned()){const actions=w.status==='rescheduled'?[['🗑',()=>removeWorkout(w)]]:[['✅',()=>complete(w)],['🔄',()=>complete(w,true)],['❌',()=>updateWorkout(w,{status:w.status==='missed'?'planned':'missed',completed_date:null,actual_activity_id:null,actual_name:null,actual_emoji:null,actual_counts_as_training:null})],['↪',()=>reschedule(w)],['✎',()=>editWorkout(w)],['🗑',()=>removeWorkout(w)]];for(const [label,action] of actions){const b=document.createElement('button');b.className='secondary';b.textContent=label;b.title=({'✅':'Concluir ou desfazer treino','🔄':'Substituir treino','❌':'Marcar como não cumprido','↪':'Reprogramar treino','✎':'Editar treino','🗑':'Excluir treino'}[label]||label);b.setAttribute('aria-label',b.title);b.classList.add('icon-action');b.onclick=action;line.append(b)}}block.append(line)}root.append(block)}}
 async function editRecoveryNote(w){const value=prompt('Observação do dia de recuperação (até 500 caracteres):',w.notes||'');if(value===null)return;if(value.length>500)return notice('A observação deve ter até 500 caracteres.');await updateWorkout(w,{notes:value.trim()||null})}
 async function convertRecovery(w){
@@ -441,6 +442,77 @@ function element(tag,cls,content){const e=document.createElement(tag);if(cls)e.c
 function socialButton(label,fn){const b=element('button','secondary',label);b.onclick=fn;return b}
 function socialWeekStats(id){const wk=dateStr(monday(0));return weeklyStats(wk,id)}
 function socialDate(value){if(!value)return 'Data não registrada';return new Date(value).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}
+
+// v1.11.0-beta.1: catálogo versionado e coleção permanente.
+const ACHIEVEMENT_CATALOG=[
+ {id:'first_workout',group:'Treinos',icon:'🌱',name:'Primeiro passo',desc:'Concluir o primeiro treino',kind:'workouts',need:1},
+ {id:'ten_workouts',group:'Treinos',icon:'💪',name:'Em movimento',desc:'Concluir 10 treinos',kind:'workouts',need:10},
+ {id:'fifty_workouts',group:'Treinos',icon:'🏋️',name:'Força total',desc:'Concluir 50 treinos',kind:'workouts',need:50},
+ {id:'hundred_workouts',group:'Treinos',icon:'🏆',name:'Centenário',desc:'Concluir 100 treinos',kind:'workouts',need:100},
+ {id:'five_days',group:'Treinos',icon:'📅',name:'Cinco dias',desc:'Treinar em 5 dias diferentes',kind:'days',need:5},
+ {id:'thirty_days',group:'Treinos',icon:'⭐',name:'Disciplina',desc:'Treinar em 30 dias diferentes',kind:'days',need:30},
+ {id:'first_goal',group:'Consistência',icon:'🎯',name:'Meta alcançada',desc:'Atingir uma meta semanal',kind:'goals',need:1},
+ {id:'five_goals',group:'Consistência',icon:'🥇',name:'Foco nas metas',desc:'Atingir 5 metas semanais',kind:'goals',need:5},
+ {id:'streak_three',group:'Consistência',icon:'🔥',name:'Em ritmo',desc:'Atingir 3 metas semanais consecutivas',kind:'streak',need:3},
+ {id:'streak_five',group:'Consistência',icon:'🏅',name:'Persistência',desc:'Atingir 5 metas semanais consecutivas',kind:'streak',need:5},
+ {id:'streak_ten',group:'Consistência',icon:'👑',name:'Imparável',desc:'Atingir 10 metas semanais consecutivas',kind:'streak',need:10},
+ {id:'first_reaction',group:'Social',icon:'👏',name:'Primeiro aplauso',desc:'Reagir à atividade de um amigo',kind:'reactions',need:1},
+ {id:'ten_reactions',group:'Social',icon:'💚',name:'Torcida presente',desc:'Enviar 10 reações',kind:'reactions',need:10},
+ {id:'first_nudge',group:'Social',icon:'🤝',name:'Bora treinar!',desc:'Enviar o primeiro incentivo',kind:'nudges',need:1},
+ {id:'ten_nudges',group:'Social',icon:'🌟',name:'Parceiro de treino',desc:'Enviar 10 incentivos',kind:'nudges',need:10}
+];
+async function loadAchievements(){
+ try{achievements=await call(client.from('user_achievements').select('user_id,achievement_id,earned_at').order('earned_at',{ascending:true}));achievementReady=true}
+ catch(e){achievementReady=false;achievements=[];notice('Conquistas: execute sql/08_migration_v1_11_0_beta_1.sql no Supabase beta. '+e.message)}
+}
+function achievementMetrics(id){
+ const done=workouts.filter(w=>w.user_id===id&&w.status==='done'&&w.completed_date&&!isRecovery(w));
+ const training=done.filter(w=>w.actual_counts_as_training);
+ const dates=[...new Set(training.map(w=>w.completed_date))];
+ const allWeeks=[...new Set(workouts.filter(w=>w.user_id===id&&w.scheduled_date).map(w=>mondayOf(w.scheduled_date)))].sort();
+ const today=dateStr(new Date());let goalsMet=0,streak=0,maxStreak=0,previous=null;
+ for(const wk of allWeeks){
+  if(shift(wk,6)>today)continue;
+  const s=weeklyStats(wk,id);if(!s.target)continue;
+  const reached=s.trainingDays>=s.target;
+  if(reached){goalsMet++;streak=previous===null||shift(previous,7)===wk?streak+1:1;maxStreak=Math.max(maxStreak,streak)}else streak=0;
+  previous=wk;
+ }
+ return {workouts:done.length,days:dates.length,goals:goalsMet,streak:maxStreak,reactions:socialReactions.filter(r=>r.sender_id===id).length,nudges:socialNudges.filter(n=>n.sender_id===id).length};
+}
+async function unlockAchievements(){
+ if(!achievementReady||!user||achievementSaving)return;
+ const current=new Set(achievements.filter(a=>a.user_id===user.id).map(a=>a.achievement_id));
+ const metrics=achievementMetrics(user.id);
+ const unlocked=ACHIEVEMENT_CATALOG.filter(a=>!current.has(a.id)&&metrics[a.kind]>=a.need);
+ if(!unlocked.length)return;
+ achievementSaving=true;
+ try{
+  // ON CONFLICT garante idempotência. O banco registra o instante do primeiro desbloqueio.
+  const inserted=await call(client.from('user_achievements').upsert(unlocked.map(a=>({user_id:user.id,achievement_id:a.id})),{onConflict:'user_id,achievement_id',ignoreDuplicates:true}).select('user_id,achievement_id,earned_at'));
+  if(inserted?.length){achievements.push(...inserted);renderAchievements();notice('🏅 '+inserted.length+' conquista(s) desbloqueada(s)!')}
+ }catch(e){notice('Não foi possível registrar conquistas: '+e.message)}finally{achievementSaving=false}
+}
+function renderAchievements(){
+ const root=$('achievementContent'),sel=$('achievementViewer'),status=$('achievementStatus');if(!root||!user)return;
+ const ids=[user.id,...friendIds().filter(id=>id!==user.id)];if(!ids.includes(achievementViewerId))achievementViewerId=user.id;
+ sel.replaceChildren();for(const id of ids){const o=element('option','',id===user.id?'Eu':friendName(id));o.value=id;sel.append(o)}sel.value=achievementViewerId;
+ root.replaceChildren();if(!achievementReady){status.textContent='Coleção indisponível. Execute a migração SQL no Supabase beta e atualize a página.';return}
+ const earned=new Map(achievements.filter(a=>a.user_id===achievementViewerId).map(a=>[a.achievement_id,a.earned_at]));
+ const total=ACHIEVEMENT_CATALOG.length,got=ACHIEVEMENT_CATALOG.filter(a=>earned.has(a.id)).length;
+ status.textContent=`${got} de ${total} conquistas desbloqueadas · As medalhas são permanentes.`;
+ const progress=element('div','achievement-progress');const bar=document.createElement('div');bar.style.width=(got/total*100)+'%';progress.append(bar);root.append(progress);
+ for(const group of ['Treinos','Consistência','Social']){
+  root.append(element('h3','achievement-group-title',group));const grid=element('div','achievement-grid');
+  for(const a of ACHIEVEMENT_CATALOG.filter(x=>x.group===group)){
+   const has=earned.has(a.id),card=element('div','achievement-item'+(has?'':' locked'));
+   card.append(element('span','medal-icon',has?a.icon:'🔒'),element('strong','',a.name),element('p','',a.desc));
+   card.append(element('small','',has?'✓ Conquistada em '+fmtDate(String(earned.get(a.id)).slice(0,10)):'Ainda não conquistada'));
+   grid.append(card)
+  }root.append(grid)
+ }
+}
+
 function renderSocial(){
  const opt=$('allowNudges');if(opt)opt.checked=profiles.find(p=>p.id===user.id)?.social_nudges_enabled!==false;
  const root=$('socialFeed'),inbox=$('socialInbox'),count=$('socialNotificationCount');if(!root||!user)return;
@@ -536,7 +608,7 @@ $('saveNewPassword').onclick=async()=>{
 };
 $('cancelRecovery').onclick=()=>{recoveryMode=false;history.replaceState(null,'',location.pathname);$('passwordRecovery').classList.add('hide');$('auth').classList.remove('hide')};
 const historicalCard=$('tab-history').querySelector('section');if(historicalCard){$('evolutionHistoryBody').append(historicalCard);historicalCard.classList.remove('card')}
-$('logout').onclick=()=>client.auth.signOut();document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{const tab=b.dataset.tab;for(const id of ['plan','history','activities','friends','settings','evolution'])$('tab-'+id).classList.toggle('hide',id!==tab);$('tab-share').classList.toggle('hide',tab!=='plan');document.querySelectorAll('[data-tab]').forEach(x=>{x.classList.toggle('active',x.dataset.tab===tab);x.classList.toggle('secondary',x.dataset.tab!==tab)})});$('socialFriendFilter').onchange=()=>{friendFilter=$('socialFriendFilter').value;interactionPageSize=10;renderSocial()};$('interactionFilter').onchange=()=>{interactionFilter=$('interactionFilter').value;interactionPageSize=10;renderSocial()};$('evolutionViewer').onchange=()=>{evolutionViewerId=$('evolutionViewer').value;renderEvolution();renderHistory()};$('evolutionFilter').onchange=()=>{evolutionComparisonMonth=null;evolutionFilter=$('evolutionFilter').value;for(const id of ['evolutionStart','evolutionEnd'])$(id).classList.toggle('hide',evolutionFilter!=='custom');renderEvolution();renderHistory()};for(const id of ['evolutionStart','evolutionEnd'])$(id).onchange=()=>{evolutionComparisonMonth=null;renderEvolution()};$('historyFilter').onchange=()=>{historyFilter=$('historyFilter').value;for(const id of ['historyStart','historyEnd'])$(id).classList.toggle('hide',historyFilter!=='custom');renderHistory()};for(const id of ['historyStart','historyEnd'])$(id).onchange=renderHistory;$('prev').onclick=()=>{offset--;render()};$('next').onclick=()=>{offset++;render()};$('historyViewer').onchange=()=>{viewId=$('historyViewer').value;render()};
+$('logout').onclick=()=>client.auth.signOut();document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{const tab=b.dataset.tab;for(const id of ['plan','history','activities','friends','settings','evolution','achievements'])$('tab-'+id).classList.toggle('hide',id!==tab);$('tab-share').classList.toggle('hide',tab!=='plan');document.querySelectorAll('[data-tab]').forEach(x=>{x.classList.toggle('active',x.dataset.tab===tab);x.classList.toggle('secondary',x.dataset.tab!==tab)})});$('achievementViewer').onchange=()=>{achievementViewerId=$('achievementViewer').value;renderAchievements()};$('socialFriendFilter').onchange=()=>{friendFilter=$('socialFriendFilter').value;interactionPageSize=10;renderSocial()};$('interactionFilter').onchange=()=>{interactionFilter=$('interactionFilter').value;interactionPageSize=10;renderSocial()};$('evolutionViewer').onchange=()=>{evolutionViewerId=$('evolutionViewer').value;renderEvolution();renderHistory()};$('evolutionFilter').onchange=()=>{evolutionComparisonMonth=null;evolutionFilter=$('evolutionFilter').value;for(const id of ['evolutionStart','evolutionEnd'])$(id).classList.toggle('hide',evolutionFilter!=='custom');renderEvolution();renderHistory()};for(const id of ['evolutionStart','evolutionEnd'])$(id).onchange=()=>{evolutionComparisonMonth=null;renderEvolution()};$('historyFilter').onchange=()=>{historyFilter=$('historyFilter').value;for(const id of ['historyStart','historyEnd'])$(id).classList.toggle('hide',historyFilter!=='custom');renderHistory()};for(const id of ['historyStart','historyEnd'])$(id).onchange=renderHistory;$('prev').onclick=()=>{offset--;render()};$('next').onclick=()=>{offset++;render()};$('historyViewer').onchange=()=>{viewId=$('historyViewer').value;render()};
 
 $('saveWeekTemplate').onclick=saveTemplateFromWeek;
 $('resetWeek').onclick=async()=>{const wk=currentWeek();if(!owned()||wk<dateStr(monday(0)))return notice('Semanas anteriores não podem ser reiniciadas.');const rows=workouts.filter(w=>w.user_id===user.id&&w.scheduled_date>=wk&&w.scheduled_date<shift(wk,7));if(!rows.length)return notice('Esta semana não tem registros para reiniciar.');if(!confirm('Reiniciar a semana de '+fmtDate(wk)+'? Isso excluirá permanentemente '+rows.length+' registro(s) desta semana, incluindo resultados. Esta ação não pode ser desfeita.'))return;await run(()=>call(client.from('workouts').delete().eq('user_id',user.id).gte('scheduled_date',wk).lt('scheduled_date',shift(wk,7))))};

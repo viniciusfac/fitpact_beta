@@ -1,4 +1,52 @@
-# FitPact 1.10.0-beta.3 — Evolução dos Amigos
+# FitPact v1.11.0-beta.1 — Conquistas (ambiente beta)
+
+**NÃO instalar em produção.** Antes de testar, executar `sql/08_migration_v1_11_0_beta_1.sql` **somente no Supabase beta**. A aplicação está pré-configurada com a URL e a chave pública do projeto beta.
+
+## Novidades 1.11.0-beta.1
+- Nova aba **Conquistas**, entre Evolução e Amigos.
+- 15 medalhas: treinos (6), consistência (5) e social (4).
+- Medalhas bloqueadas esmaecidas, desbloqueadas visíveis com data.
+- Coleção permanente no banco, independente dos filtros de período.
+- Seletor Eu/Amigo, limitado a amizades aceitas via RLS.
+- Registro idempotente de conquistas próprias.
+- Sem acesso de alteração das medalhas pelo frontend.
+
+**Limitações conhecidas beta.1:** o desbloqueio é calculado no navegador e ainda não possui validação de critérios no servidor; os indicadores sociais usam as últimas 500 reações e 200 incentivos carregados pelo app, podendo subcontar históricos longos; a data de conquistas históricas é a do primeiro registro, não a data original do feito. Sequências usam semanas com metas registradas, e merecem validação com histórico irregular.
+
+## Testes propostos
+1. Instalar migração apenas no beta e abrir app.
+2. Conferir 15 medalhas, grupos e aparência bloqueada/desbloqueada.
+3. Confirmar desbloqueios e persistência após reinício.
+4. Alternar Eu/Amigo e verificar RLS após remover amizade.
+5. Validar regras de sequência, treino e interações sociais.
+6. Validar navegação com seis abas em celular.
+
+---
+
+## Histórico acumulado anterior
+
+# FitPact 1.10.0 — Produção (homologada) 
+
+## 1.10.0 — Produção — 21/10/2026
+
+- **Homologação beta.3:** 13 de 13 verificações aprovadas, incluindo interações sociais, filtros de evolução, privacidade entre amigos, modelos de semanas, recuperação, substituições e navegação móvel.
+- Evolução unificada: seletor **Eu/Amigo** controla os seis indicadores, os quatro painéis analíticos e o Histórico detalhado.
+- Cartões de **Sequência atual** e **Recorde pessoal** para o usuário selecionado, sem linha duplicada no Histórico detalhado.
+- Menu: **Plano Semanal → Evolução → Amigos → Atividades → Configurações**.
+- Mantidas melhorias de usabilidade 1.9.1: login/cadastro, painéis recolhíveis, atividades ativas/inativas, ícones e histórico de interações com **Carregar mais 10**.
+- **Configuração:** Supabase de produção com chave pública publicável. Não executar SQL adicional para atualizar esta versão; scripts históricos ficam em `sql/`.
+- **Próxima versão planejada:** 1.11.0-beta.1 — conquistas permanentes de treino e sociais, com visualização Eu/Amigo. Compartilhamento mensal retirado do escopo por ora.
+
+### Publicação e reversão
+
+1. Faça backup do conteúdo publicado no GitHub Pages e preserve o ZIP estável da versão 1.9.0.
+2. Publique os arquivos **do conteúdo deste ZIP** na raiz do repositório `viniciusfac/fitpact`, preservando a estrutura `docs/` e `sql/`.
+3. Aguarde o GitHub Pages atualizar; atualize o PWA/reabra o navegador e confirme o cabeçalho **v1.10.0**.
+4. Verifique login, dados próprios, seletor de amigos, reações, incentivos e permissões entre contas.
+5. Em caso de regressão, restaure os arquivos da versão 1.9.0 no GitHub; **não** apague nem reverta dados do Supabase sem análise prévia.
+
+**Nota:** trechos anteriores do README registram decisões e pendências históricas de versões beta; esta seção é o estado atual de publicação.
+
 
 **Somente ambiente beta. Não publicar em produção.** Base: 1.9.1-beta.2.
 
