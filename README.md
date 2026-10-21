@@ -1,3 +1,28 @@
+# FitPact v1.11.0-beta.3 — Segurança das Conquistas (ambiente beta)
+
+**NÃO publicar em produção.** Execute `sql/09_migration_v1_11_0_beta_3_security.sql` **somente no Supabase beta**, após a migração 08. Não execute novamente a 08 se já foi aplicada.
+
+## Alterações beta.3
+- Retirada a permissão de INSERT direto na tabela `user_achievements` para usuários autenticados.
+- Função RPC `fitpact_claim_achievements()` valida no banco, para o usuário autenticado, os 15 critérios; sem parâmetros de usuário ou medalha.
+- Registro idempotente e permanente, com a data original preservada.
+- Consulta das conquistas continua limitada pelo RLS já existente.
+- Contagens sociais feitas diretamente nas tabelas, sem o limite de paginação do feed.
+- Atenção: medalhas concedidas antes da correção não são revogadas automaticamente, em respeito à regra de permanência. Verifique dados históricos de beta se necessário.
+
+## Homologação de segurança necessária
+1. Aplicar SQL 09 no Supabase beta; verificar mensagem de sucesso.
+2. Com usuário autenticado, chamar a RPC e confirmar retorno somente de medalhas merecidas.
+3. Tentar INSERT direto em `user_achievements` via cliente autenticado: deve ser negado.
+4. Tentar UPDATE e DELETE: devem ser negados.
+5. Verificar consulta de amigo aceito e de usuário não amigo (RLS).
+6. Confirmar desbloqueio automático após atividade, reação e incentivo.
+7. Testar sequências, semanas sem meta e persistência.
+
+**Nota técnica:** as regras de metas/semana foram reproduzidas em SQL a partir da implementação do app. Ainda exigem homologação com dados reais, inclusive datas próximas de mudanças de fuso horário. A execução de SQL não foi testada contra uma instância real de PostgreSQL/Supabase neste pacote.
+
+---
+
 # FitPact v1.11.0-beta.2 — Conquistas (ambiente beta)
 
 **NÃO instalar em produção.** Antes de testar, executar `sql/08_migration_v1_11_0_beta_1.sql` **somente no Supabase beta**. A aplicação está pré-configurada com a URL e a chave pública do projeto beta.

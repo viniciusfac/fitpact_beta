@@ -482,16 +482,17 @@ function achievementMetrics(id){
 }
 async function unlockAchievements(){
  if(!achievementReady||!user||achievementSaving)return;
- const current=new Set(achievements.filter(a=>a.user_id===user.id).map(a=>a.achievement_id));
- const metrics=achievementMetrics(user.id);
- const unlocked=ACHIEVEMENT_CATALOG.filter(a=>!current.has(a.id)&&metrics[a.kind]>=a.need);
- if(!unlocked.length)return;
  achievementSaving=true;
  try{
-  // ON CONFLICT garante idempotência. O banco registra o instante do primeiro desbloqueio.
-  const inserted=await call(client.from('user_achievements').upsert(unlocked.map(a=>({user_id:user.id,achievement_id:a.id})),{onConflict:'user_id,achievement_id',ignoreDuplicates:true}).select('user_id,achievement_id,earned_at'));
-  if(inserted?.length){achievements.push(...inserted);renderAchievements();notice('🏅 '+inserted.length+' conquista(s) desbloqueada(s)!')}
- }catch(e){notice('Não foi possível registrar conquistas: '+e.message)}finally{achievementSaving=false}
+  // O servidor valida todos os critérios; o cliente não pode inserir medalhas.
+  const verified=await call(client.rpc('fitpact_claim_achievements'));
+  const old=new Set(achievements.filter(a=>a.user_id===user.id).map(a=>a.achievement_id));
+  const added=verified.filter(a=>!old.has(a.achievement_id));
+  achievements=achievements.filter(a=>a.user_id!==user.id).concat(verified.map(a=>({...a,user_id:user.id})));
+  renderAchievements();
+  if(added.length)notice('🏅 '+added.length+' conquista(s) desbloqueada(s)!');
+ }catch(e){notice('Não foi possível validar conquistas: '+e.message+' — execute a migração 09 no Supabase beta.')}
+ finally{achievementSaving=false}
 }
 function renderAchievements(){
  const root=$('achievementContent'),sel=$('achievementViewer'),status=$('achievementStatus');if(!root||!user)return;
