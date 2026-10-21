@@ -1,6 +1,12 @@
-# FitPact v1.11.0-beta.1 — Conquistas (ambiente beta)
+# FitPact v1.11.0-beta.2 — Conquistas (ambiente beta)
 
 **NÃO instalar em produção.** Antes de testar, executar `sql/08_migration_v1_11_0_beta_1.sql` **somente no Supabase beta**. A aplicação está pré-configurada com a URL e a chave pública do projeto beta.
+
+## Novidades 1.11.0-beta.2
+- Padronização dos seis botões do menu principal: cada aba apresenta ícone e texto, preservando a ordem e a acessibilidade.
+- Nenhuma alteração nas regras de desbloqueio, no banco de dados ou nas funcionalidades da beta.1.
+- Para instalações já migradas da beta.1, **não executar SQL novamente**. Instalações novas devem seguir a migração da beta.1.
+- Teste visual e regressão funcional obrigatórios antes de homologar.
 
 ## Novidades 1.11.0-beta.1
 - Nova aba **Conquistas**, entre Evolução e Amigos.
